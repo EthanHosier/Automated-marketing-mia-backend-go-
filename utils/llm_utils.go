@@ -3,26 +3,53 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/ethanhosier/mia-backend-go/types"
+	"github.com/sashabaranov/go-openai"
 )
 
-func RunBedrock(prompt string) (string, error) {
+type LLMClient struct {
+	BedrockClient *bedrockruntime.Client
+	OpenaiClient  *openai.Client
+}
+
+func CreateLLMClient() *LLMClient {
+	bedrockClient := createBedrockClient()
+	openaiClient := createOpenaiClient()
+
+	return &LLMClient{
+		BedrockClient: bedrockClient,
+		OpenaiClient:  openaiClient,
+	}
+}
+
+func createBedrockClient() *bedrockruntime.Client {
 	region := os.Getenv("AWS_REGION")
 	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(region))
 
 	if err != nil {
-		return "", err
+		log.Fatalf("Failed to create aws bedrock client, error: %v", err)
 	}
 
-	brc := bedrockruntime.NewFromConfig(cfg)
+	return bedrockruntime.NewFromConfig(cfg)
+}
+
+func createOpenaiClient() *openai.Client {
+	apiKey := os.Getenv("OPENAI_KEY")
+
+	return openai.NewClient(apiKey)
+}
+
+func (llm *LLMClient) LlamaSummarise(prompt string) (string, error) {
+
 	payload := types.BedrockRequest{
 		Prompt:      prompt,
-		MaxTokens:   512,
+		MaxTokens:   200,
 		Temperature: 0.5,
 	}
 
@@ -32,7 +59,7 @@ func RunBedrock(prompt string) (string, error) {
 		return "", err
 	}
 
-	output, err := brc.InvokeModel(context.Background(), &bedrockruntime.InvokeModelInput{
+	output, err := llm.BedrockClient.InvokeModel(context.Background(), &bedrockruntime.InvokeModelInput{
 		Body:        payloadBytes,
 		ModelId:     aws.String("meta.llama3-1-8b-instruct-v1:0"),
 		ContentType: aws.String("application/json"),
@@ -51,4 +78,25 @@ func RunBedrock(prompt string) (string, error) {
 	}
 
 	return response.Generation, nil
+}
+
+func (llm *LLMClient) OpenaiCompletion(prompt string) (string, error) {
+	resp, err := llm.OpenaiClient.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: openai.GPT4o20240806,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: prompt,
+				},
+			},
+		},
+	)
+
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Choices[0].Message.Content, nil
 }

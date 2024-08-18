@@ -25,11 +25,13 @@ func main() {
 	supabaseClient := NewSupabaseClient()
 	store := storage.NewSupabaseStorage(supabaseClient)
 
-	server := api.NewServer(*listenAddr, store)
-	// log.Printf("Starting server on %s", *listenAddr)
-	// log.Fatal(server.Start())
+	llmClient := utils.CreateLLMClient()
+
+	server := api.NewServer(*listenAddr, store, llmClient)
+	log.Printf("Starting server on %s", *listenAddr)
+	log.Fatal(server.Start())
 	fmt.Println(server)
-	fmt.Println(utils.RunBedrock("Hello, world!"))
+
 }
 
 func NewSupabaseClient() *supa.Client {

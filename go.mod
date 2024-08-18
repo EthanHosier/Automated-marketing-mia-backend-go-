@@ -25,4 +25,5 @@ require (
 	github.com/aws/smithy-go v1.20.4 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/nedpals/postgrest-go v0.1.3 // indirect
+	github.com/sashabaranov/go-openai v1.28.2 // indirect
 )
