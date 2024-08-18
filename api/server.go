@@ -26,6 +26,7 @@ func NewServer(listenAddr string, store storage.Storage, llmClient *utils.LLMCli
 func (s *Server) routes() {
 	// s.router.HandleFunc("POST /user", s.handleCreateUser)
 	s.router.HandleFunc("POST /business-summaries", s.businessSummaries)
+	s.router.HandleFunc("GET /business-summaries", s.getBusinessSummaries)
 }
 
 func (s *Server) Start() error {
@@ -97,6 +98,32 @@ func (s *Server) businessSummaries(w http.ResponseWriter, r *http.Request) {
 
 	resp := types.BusinessSummariesResponse{
 		BusinessSummaries: *businessSummaries,
+	}
+
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (s *Server) getBusinessSummaries(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(utils.UserIdKey).(string)
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusInternalServerError)
+		return
+	}
+
+	businessSummary, err := s.store.GetBusinessSummary(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	resp := types.BusinessSummariesResponse{
+		BusinessSummaries: types.BusinessSummary{
+			BusinessName:    "",
+			BusinessSummary: businessSummary.BusinessSummary,
+			BrandVoice:      businessSummary.BrandVoice,
+			TargetRegion:    businessSummary.TargetRegion,
+			TargetAudience:  businessSummary.TargetAudience,
+		},
 	}
 
 	json.NewEncoder(w).Encode(resp)

@@ -48,3 +48,10 @@ func (s *SupabaseStorage) StoreSitemap(userId string, urls []string) error {
 
 	return err
 }
+
+func (s *SupabaseStorage) GetBusinessSummary(userId string) (types.StoredBusinessSummary, error) {
+	var result types.StoredBusinessSummary
+	err := s.client.DB.From("businessSummaries").Select("*").Single().Eq("id", userId).Execute(&result)
+
+	return result, err
+}
