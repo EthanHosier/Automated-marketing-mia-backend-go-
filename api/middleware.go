@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethanhosier/mia-backend-go/utils"
 	"github.com/golang-jwt/jwt/v4"
-	// "github.com/nedpals/supabase-go"
 )
 
 type Middleware func(http.Handler) http.Handler
@@ -46,28 +45,6 @@ func Logging(next http.Handler) http.Handler {
 	})
 }
 
-// func Auth(supabaseClient *supabase.Client, next http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-// 		authHeader := r.Header.Get("Authorization")
-// 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-// 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-// 			return
-// 		}
-
-// 		token := strings.TrimPrefix(authHeader, "Bearer ")
-
-// 		user, err := supabaseClient.Auth.User(r.Context(), token)
-// 		if err != nil {
-// 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-// 			return
-// 		}
-
-// 		ctx := context.WithValue(r.Context(), utils.UserIdKey, user.ID)
-// 		next.ServeHTTP(w, r.WithContext(ctx))
-// 	})
-// }
-
 func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var jwtSecret = os.Getenv("SUPABASE_JWT_SECRET")
@@ -80,9 +57,7 @@ func Auth(next http.Handler) http.Handler {
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-		// Parse and validate the token
 		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-			// Ensure the token method is HMAC and matches the secret
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, jwt.ErrSignatureInvalid
 			}
