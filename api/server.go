@@ -59,15 +59,21 @@ func (s *Server) businessSummaries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	screenshotBase64, err := utils.GetPageScreenshot(utils.ScreenshotUrl + "?url=" + req.Url)
+	// screenshotBase64, err := utils.PageScreenshot(utils.ScreenshotUrl + "?url=" + req.Url)
 
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 	return
+	// }
+
+	sitemap, err := utils.Sitemap(req.Url, 15)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	resp := types.BusinessSummariesResponse{
-		ScreenshotBase64: screenshotBase64,
+		Sitemap: sitemap,
 	}
 
 	json.NewEncoder(w).Encode(resp)

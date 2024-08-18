@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 
@@ -10,6 +11,7 @@ import (
 
 	"github.com/ethanhosier/mia-backend-go/api"
 	"github.com/ethanhosier/mia-backend-go/storage"
+	"github.com/ethanhosier/mia-backend-go/utils"
 )
 
 func main() {
@@ -24,8 +26,10 @@ func main() {
 	store := storage.NewSupabaseStorage(supabaseClient)
 
 	server := api.NewServer(*listenAddr, store)
-	log.Printf("Starting server on %s", *listenAddr)
-	log.Fatal(server.Start())
+	// log.Printf("Starting server on %s", *listenAddr)
+	// log.Fatal(server.Start())
+	fmt.Println(server)
+	fmt.Println(utils.RunBedrock("Hello, world!"))
 }
 
 func NewSupabaseClient() *supa.Client {

@@ -9,7 +9,7 @@ import (
 	"github.com/ethanhosier/mia-backend-go/types"
 )
 
-func GetPageScreenshot(url string) (string, error) {
+func PageScreenshot(url string) (string, error) {
 
 	resp, err := http.Get(ScreenshotUrl + "?url=" + url)
 	if err != nil {
@@ -33,4 +33,24 @@ func GetPageScreenshot(url string) (string, error) {
 	}
 
 	return response.ScreenshotBase64, nil
+}
+
+func Sitemap(url string, timeout int) ([]string, error) {
+	resp, err := http.Get(SitemapScraperUrl + "?url=" + url + "&timeout=" + fmt.Sprintf("%d", timeout))
+	if err != nil {
+		return []string{}, err
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var urls []string
+	err = json.Unmarshal(body, &urls)
+	if err != nil {
+		return nil, err
+	}
+
+	return urls, nil
 }

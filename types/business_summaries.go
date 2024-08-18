@@ -10,7 +10,8 @@ type BusinessSummariesRequest struct {
 }
 
 type BusinessSummariesResponse struct {
-	ScreenshotBase64 string `json:"screenshot"`
+	ScreenshotBase64 string   `json:"screenshot"`
+	Sitemap          []string `json:"sitemap"`
 }
 
 func ValidateBusinessSummariesRequest(req BusinessSummariesRequest) error {
