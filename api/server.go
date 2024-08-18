@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/ethanhosier/mia-backend-go/storage"
 	"github.com/ethanhosier/mia-backend-go/types"
@@ -39,6 +40,12 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) businessSummaries(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(utils.UserIdKey).(string)
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusInternalServerError)
+		return
+	}
+
 	var req types.BusinessSummariesRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -50,6 +57,26 @@ func (s *Server) businessSummaries(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	sitemapWg := sync.WaitGroup{}
+	sitemapWg.Add(1)
+
+	go func() {
+		defer sitemapWg.Done()
+
+		urls, err := utils.Sitemap(req.Url, 15)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		log.Println("Storing sitemap for user", userID)
+		err = s.store.StoreSitemap(userID, urls)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}()
 
 	summaries, err := utils.BusinessPageSummaries(req.Url, 15, s.llmClient)
 
@@ -83,12 +110,6 @@ func (s *Server) businessSummaries(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	userID, ok := r.Context().Value(utils.UserIdKey).(string)
-	if !ok {
-		http.Error(w, "User ID not found in context", http.StatusInternalServerError)
-		return
-	}
-
 	log.Println("Storing business summaries for user", userID)
 	err = s.store.StoreBusinessSummary(userID, *businessSummaries)
 	if err != nil {
@@ -99,6 +120,8 @@ func (s *Server) businessSummaries(w http.ResponseWriter, r *http.Request) {
 	resp := types.BusinessSummariesResponse{
 		BusinessSummaries: *businessSummaries,
 	}
+
+	sitemapWg.Wait()
 
 	json.NewEncoder(w).Encode(resp)
 }

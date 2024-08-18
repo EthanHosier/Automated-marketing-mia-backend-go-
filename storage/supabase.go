@@ -44,7 +44,7 @@ func (s *SupabaseStorage) StoreSitemap(userId string, urls []string) error {
 
 	var results []types.StoredBusinessSummary
 
-	err := s.client.DB.From("sitemapUrls").Insert(rows).Execute(&results)
+	err := s.client.DB.From("sitemaps").Insert(rows).Execute(&results)
 
 	return err
 }
