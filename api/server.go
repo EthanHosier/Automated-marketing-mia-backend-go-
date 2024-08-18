@@ -30,6 +30,7 @@ func (s *Server) routes() {
 
 func (s *Server) Start() error {
 	stack := CreateMiddlewareStack(
+		Auth,
 		Logging,
 	)
 
