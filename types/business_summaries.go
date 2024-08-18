@@ -21,6 +21,19 @@ type BusinessSummary struct {
 	TargetAudience  string `json:"targetAudience"`
 }
 
+type StoredBusinessSummary struct {
+	ID              string `json:"id"`
+	BusinessSummary string `json:"businessSummary"`
+	BrandVoice      string `json:"brandVoice"`
+	TargetRegion    string `json:"targetRegion"`
+	TargetAudience  string `json:"targetAudience"`
+}
+
+type StoredSitemapUrl struct {
+	ID  string `json:"id"`
+	Url string `json:"url"`
+}
+
 func ValidateBusinessSummariesRequest(req BusinessSummariesRequest) error {
 	if req.Url == "" {
 		return errors.New("url is required")

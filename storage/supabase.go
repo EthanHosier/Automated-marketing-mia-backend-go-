@@ -1,10 +1,8 @@
 package storage
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/ethanhosier/mia-backend-go/types"
+	"github.com/ethanhosier/mia-backend-go/utils"
 	supa "github.com/nedpals/supabase-go"
 )
 
@@ -18,30 +16,35 @@ func NewSupabaseStorage(client *supa.Client) *SupabaseStorage {
 	}
 }
 
-func (s *SupabaseStorage) GetUserByID(id string) (*types.User, error) {
-	return &types.User{
-		ID:   id,
-		Name: "Alice",
-	}, nil
-}
-
-func (s *SupabaseStorage) CreateUserFromEmailPassword(name, email, password string) (*types.User, error) {
-	ctx := context.Background()
-
-	user, err := s.client.Auth.SignUp(ctx, supa.UserCredentials{
-		Email:    email,
-		Password: password,
-	})
-
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
+func (s *SupabaseStorage) StoreBusinessSummary(userId string, businessSummary types.BusinessSummary) error {
+	row := types.StoredBusinessSummary{
+		ID:              userId,
+		BusinessSummary: businessSummary.BusinessSummary,
+		BrandVoice:      businessSummary.BrandVoice,
+		TargetRegion:    businessSummary.TargetRegion,
+		TargetAudience:  businessSummary.TargetAudience,
 	}
 
-	fmt.Println(user)
-	return &types.User{
-		ID:    user.ID,
-		Name:  name,
-		Email: user.Email,
-	}, nil
+	var results []types.StoredBusinessSummary
+	err := s.client.DB.From("businessSummaries").Insert(row).Execute(&results)
+
+	return err
+}
+
+func (s *SupabaseStorage) StoreSitemap(userId string, urls []string) error {
+	uniqueUrls := utils.RemoveDuplicates(urls)
+
+	var rows []types.StoredSitemapUrl
+	for _, url := range uniqueUrls {
+		rows = append(rows, types.StoredSitemapUrl{
+			ID:  userId,
+			Url: url,
+		})
+	}
+
+	var results []types.StoredBusinessSummary
+
+	err := s.client.DB.From("sitemapUrls").Insert(rows).Execute(&results)
+
+	return err
 }

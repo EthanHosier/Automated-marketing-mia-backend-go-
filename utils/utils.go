@@ -22,3 +22,17 @@ func ExtractJsonObj(jsonString string) string {
 
 	return jsonString[start : end+1]
 }
+
+func RemoveDuplicates(input []string) []string {
+	seen := make(map[string]struct{})
+	var result []string
+
+	for _, str := range input {
+		if _, exists := seen[str]; !exists {
+			seen[str] = struct{}{}
+			result = append(result, str)
+		}
+	}
+
+	return result
+}

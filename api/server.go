@@ -37,18 +37,6 @@ func (s *Server) Start() error {
 	return http.ListenAndServe(s.listenAddr, stack(s.router))
 }
 
-// func (s *Server) handleGetUserByID(w http.ResponseWriter, r *http.Request) {
-// 	id := r.PathValue("id")
-// 	user, err := s.store.GetUserByID(id)
-
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-
-// 	json.NewEncoder(w).Encode(user)
-// }
-
 func (s *Server) businessSummaries(w http.ResponseWriter, r *http.Request) {
 	var req types.BusinessSummariesRequest
 
@@ -62,29 +50,12 @@ func (s *Server) businessSummaries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// screenshotBase64, err := utils.PageScreenshot(utils.ScreenshotUrl + "?url=" + req.Url)
-
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
-
-	// sitemap, err := utils.Sitemap(req.Url, 15)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
-
 	summaries, err := utils.BusinessPageSummaries(req.Url, 15, s.llmClient)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	// resp := types.BusinessSummariesResponse{
-	// 	Summaries: summaries,
-	// }
 
 	jsonData, err := json.Marshal(summaries)
 	if err != nil {
@@ -109,6 +80,19 @@ func (s *Server) businessSummaries(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+	}
+
+	userID, ok := r.Context().Value(utils.UserIdKey).(string)
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusInternalServerError)
+		return
+	}
+
+	log.Println("Storing business summaries for user", userID)
+	err = s.store.StoreBusinessSummary(userID, *businessSummaries)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	resp := types.BusinessSummariesResponse{

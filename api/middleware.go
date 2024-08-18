@@ -76,8 +76,6 @@ func Auth(next http.Handler) http.Handler {
 			return
 		}
 
-		log.Println(claims)
-
 		userID, ok := claims["sub"].(string)
 		log.Println("id: ", userID)
 		if !ok {
