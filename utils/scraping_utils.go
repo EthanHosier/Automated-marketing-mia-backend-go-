@@ -132,7 +132,7 @@ func BusinessSummaryPoints(jsonString string, llmClient *LLMClient) (*types.Busi
 
 	var businessSummary types.BusinessSummary
 
-	extractedObj := ExtractJsonObj(completion)
+	extractedObj := ExtractJsonObj(completion, CurlyBracket)
 
 	err = json.Unmarshal([]byte(extractedObj), &businessSummary)
 

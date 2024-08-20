@@ -34,6 +34,10 @@ type StoredSitemapUrl struct {
 	Url string `json:"url"`
 }
 
+type SitemapResponse struct {
+	Urls []string `json:"urls"`
+}
+
 func ValidateBusinessSummariesRequest(req BusinessSummariesRequest) error {
 	if req.Url == "" {
 		return errors.New("url is required")

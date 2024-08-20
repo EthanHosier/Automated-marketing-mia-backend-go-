@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/ethanhosier/mia-backend-go/prompts"
 	"github.com/ethanhosier/mia-backend-go/storage"
 	"github.com/ethanhosier/mia-backend-go/types"
 	"github.com/ethanhosier/mia-backend-go/utils"
@@ -25,9 +26,13 @@ func NewServer(listenAddr string, store storage.Storage, llmClient *utils.LLMCli
 }
 
 func (s *Server) routes() {
-	// s.router.HandleFunc("POST /user", s.handleCreateUser)
 	s.router.HandleFunc("POST /business-summaries", s.businessSummaries)
 	s.router.HandleFunc("GET /business-summaries", s.getBusinessSummaries)
+
+	s.router.HandleFunc("GET /sitemap", s.getSitemap)
+
+	s.router.HandleFunc("POST /campaigns", s.generateCampaigns)
+
 }
 
 func (s *Server) Start() error {
@@ -147,6 +152,78 @@ func (s *Server) getBusinessSummaries(w http.ResponseWriter, r *http.Request) {
 			TargetRegion:    businessSummary.TargetRegion,
 			TargetAudience:  businessSummary.TargetAudience,
 		},
+	}
+
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (s *Server) getSitemap(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(utils.UserIdKey).(string)
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusInternalServerError)
+		return
+	}
+
+	sitemap, err := s.store.GetSitemap(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	urls := []string{}
+	for _, url := range sitemap {
+		urls = append(urls, url.Url)
+	}
+
+	resp := types.SitemapResponse{
+		Urls: urls,
+	}
+
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (s *Server) generateCampaigns(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(utils.UserIdKey).(string)
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusInternalServerError)
+		return
+	}
+
+	var req types.GenerateCampaignsRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	businessSummary, err := s.store.GetBusinessSummary(userID)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+
+	}
+
+	themePrompt := prompts.ThemePrompt(businessSummary, req.TargetAudienceLocation, []string{"https://example.com"}, req.Instructions, req.Backlink, []string{})
+	themes, err := utils.Themes(themePrompt, s.llmClient)
+
+	if err != nil {
+		log.Println("Error generating themes:", err, ". Trying again (1st retry)")
+		themes, err = utils.Themes(themePrompt, s.llmClient)
+
+		if err != nil {
+			log.Println("Error generating themes:", err, ". Trying again (2nd retry)")
+			themes, err = utils.Themes(themePrompt, s.llmClient)
+
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
+	resp := types.GenerateCampaignsResponse{
+		Themes: themes,
 	}
 
 	json.NewEncoder(w).Encode(resp)

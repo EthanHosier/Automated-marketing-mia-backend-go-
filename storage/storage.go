@@ -6,4 +6,5 @@ type Storage interface {
 	StoreBusinessSummary(userId string, businessSummary types.BusinessSummary) error
 	GetBusinessSummary(userId string) (types.StoredBusinessSummary, error)
 	StoreSitemap(userId string, urls []string) error
+	GetSitemap(userId string) ([]types.StoredSitemapUrl, error)
 }
