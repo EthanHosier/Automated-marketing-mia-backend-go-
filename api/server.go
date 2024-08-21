@@ -13,15 +13,14 @@ import (
 )
 
 type Server struct {
-	listenAddr   string
-	store        storage.Storage
-	router       *http.ServeMux
-	llmClient    *utils.LLMClient
-	googleClient *utils.GoogleClient
+	listenAddr string
+	store      storage.Storage
+	router     *http.ServeMux
+	llmClient  *utils.LLMClient
 }
 
-func NewServer(listenAddr string, store storage.Storage, llmClient *utils.LLMClient, googleClient *utils.GoogleClient) *Server {
-	s := &Server{listenAddr: listenAddr, store: store, router: http.NewServeMux(), llmClient: llmClient, googleClient: googleClient}
+func NewServer(listenAddr string, store storage.Storage, llmClient *utils.LLMClient) *Server {
+	s := &Server{listenAddr: listenAddr, store: store, router: http.NewServeMux(), llmClient: llmClient}
 	s.routes()
 	return s
 }

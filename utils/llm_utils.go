@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 
@@ -99,4 +100,20 @@ func (llm *LLMClient) OpenaiCompletion(prompt string) (string, error) {
 	}
 
 	return resp.Choices[0].Message.Content, nil
+}
+
+func (llm *LLMClient) OpenaiEmbeddings(text string) ([]float32, error) {
+	queryReq := openai.EmbeddingRequest{
+		Input: []string{"text"},
+		Model: openai.SmallEmbedding3,
+	}
+
+	queryResponse, err := llm.OpenaiClient.CreateEmbeddings(context.Background(), queryReq)
+	if err != nil {
+		return []float32{}, fmt.Errorf("error creating query embedding: %w", err)
+	}
+
+	queryEmbedding := queryResponse.Data[0]
+
+	return queryEmbedding.Embedding, nil
 }
