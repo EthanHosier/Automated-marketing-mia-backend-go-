@@ -63,6 +63,31 @@ func (s *Server) businessSummaries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// check user hasn't already generated business summaries or sitemap
+	checkWg := sync.WaitGroup{}
+	checkWg.Add(1)
+
+	valid := true
+
+	go func() {
+		defer checkWg.Done()
+		_, err := s.store.GetBusinessSummary(userID)
+		if err == nil {
+			valid = false
+		}
+	}()
+
+	_, err := s.store.GetSitemap(userID)
+	if err == nil {
+		valid = false
+	}
+
+	checkWg.Wait()
+	if !valid {
+		http.Error(w, "User has already generated business summaries or sitemap", http.StatusBadRequest)
+		return
+	}
+
 	sitemapWg := sync.WaitGroup{}
 	sitemapWg.Add(1)
 
@@ -75,8 +100,16 @@ func (s *Server) businessSummaries(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Println("Storing sitemap for user", userID)
-		err = s.store.StoreSitemap(userID, urls)
+		uniqueUrls := utils.RemoveDuplicates(urls)
+		embeddings, err := s.llmClient.OpenaiEmbeddings(uniqueUrls)
+
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		log.Println("Storing sitemap for user", userID, "with", len(uniqueUrls), "unique URLs")
+		err = s.store.StoreSitemap(userID, urls, embeddings)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

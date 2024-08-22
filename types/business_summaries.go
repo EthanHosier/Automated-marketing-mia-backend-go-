@@ -30,8 +30,9 @@ type StoredBusinessSummary struct {
 }
 
 type StoredSitemapUrl struct {
-	ID  string `json:"id"`
-	Url string `json:"url"`
+	ID     string `json:"id"`
+	Url    string `json:"url"`
+	Vector Vector `json:"url_embedding"`
 }
 
 type SitemapResponse struct {

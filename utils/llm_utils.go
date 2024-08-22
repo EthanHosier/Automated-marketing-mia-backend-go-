@@ -102,18 +102,23 @@ func (llm *LLMClient) OpenaiCompletion(prompt string) (string, error) {
 	return resp.Choices[0].Message.Content, nil
 }
 
-func (llm *LLMClient) OpenaiEmbeddings(text string) ([]float32, error) {
+func (llm *LLMClient) OpenaiEmbeddings(urls []string) ([]types.Vector, error) {
 	queryReq := openai.EmbeddingRequest{
-		Input: []string{"text"},
+		Input: urls,
 		Model: openai.SmallEmbedding3,
 	}
 
 	queryResponse, err := llm.OpenaiClient.CreateEmbeddings(context.Background(), queryReq)
 	if err != nil {
-		return []float32{}, fmt.Errorf("error creating query embedding: %w", err)
+		return []types.Vector{}, fmt.Errorf("error creating query embedding: %w", err)
 	}
 
-	queryEmbedding := queryResponse.Data[0]
+	queryEmbedding := queryResponse.Data
 
-	return queryEmbedding.Embedding, nil
+	var embeddings []types.Vector
+	for _, embedding := range queryEmbedding {
+		embeddings = append(embeddings, embedding.Embedding)
+	}
+
+	return embeddings, nil
 }

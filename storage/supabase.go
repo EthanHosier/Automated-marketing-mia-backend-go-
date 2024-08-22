@@ -31,14 +31,15 @@ func (s *SupabaseStorage) StoreBusinessSummary(userId string, businessSummary ty
 	return err
 }
 
-func (s *SupabaseStorage) StoreSitemap(userId string, urls []string) error {
+func (s *SupabaseStorage) StoreSitemap(userId string, urls []string, embeddings []types.Vector) error {
 	uniqueUrls := utils.RemoveDuplicates(urls)
 
 	var rows []types.StoredSitemapUrl
-	for _, url := range uniqueUrls {
+	for i, url := range uniqueUrls {
 		rows = append(rows, types.StoredSitemapUrl{
-			ID:  userId,
-			Url: url,
+			ID:     userId,
+			Url:    url,
+			Vector: embeddings[i],
 		})
 	}
 

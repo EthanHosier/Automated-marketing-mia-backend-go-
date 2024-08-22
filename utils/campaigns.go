@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/ethanhosier/mia-backend-go/types"
 )
@@ -10,7 +9,10 @@ import (
 func Themes(themePrompt string, llmClient *LLMClient) ([]types.ThemeData, error) {
 	completion, err := llmClient.OpenaiCompletion(themePrompt)
 
-	fmt.Println(completion)
+	if err != nil {
+		return nil, err
+	}
+
 	extractedArr := ExtractJsonObj(completion, SquareBracket)
 
 	var themeData []types.ThemeData

@@ -16,3 +16,18 @@ type ThemeData struct {
 	Keywords    []string `json:"keywords"`
 	SelectedUrl string   `json:"selectedUrl"`
 }
+
+type GoogleAdsKeyword struct {
+	Keyword            string `json:"keyword"`
+	AvgMonthlySearches int    `json:"avg_monthly_searches"`
+	CompetitionLevel   string `json:"competition_level"`
+	CompetitionIndex   int    `json:"competition_index"`
+	LowTopOfPageBid    int    `json:"low_top_of_page_bid"`
+	HighTopOfPageBid   int    `json:"high_top_of_page_bid"`
+}
+
+type GoogleAdsResponse struct {
+	Keywords []GoogleAdsKeyword `json:"keywords"`
+}
+
+type Vector []float32

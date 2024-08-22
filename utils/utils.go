@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"encoding/json"
 	"math"
 	"strings"
+
+	"github.com/ethanhosier/mia-backend-go/types"
 )
 
 type BracketType int
@@ -52,4 +55,21 @@ func RemoveDuplicates(input []string) []string {
 	}
 
 	return result
+}
+
+func VectorToPostgresFormat(v types.Vector) (string, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func VectorFromPostgresFormat(s string) (types.Vector, error) {
+	var v types.Vector
+	err := json.Unmarshal([]byte(s), &v)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
 }
