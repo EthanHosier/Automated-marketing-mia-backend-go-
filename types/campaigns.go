@@ -8,7 +8,7 @@ type GenerateCampaignsRequest struct {
 }
 
 type GenerateCampaignsResponse struct {
-	Themes []ThemeData `json:"themes"`
+	Keywords []GoogleAdsKeyword `json:"keywords"`
 }
 
 type ThemeData struct {

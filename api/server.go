@@ -255,8 +255,15 @@ func (s *Server) generateCampaigns(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	adsData, err := utils.GoogleAdsKeywordsData(themes[0].Keywords)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	resp := types.GenerateCampaignsResponse{
-		Themes: themes,
+		Keywords: adsData,
 	}
 
 	json.NewEncoder(w).Encode(resp)
