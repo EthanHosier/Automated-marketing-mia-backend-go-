@@ -255,15 +255,67 @@ func (s *Server) generateCampaigns(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	adsData, err := utils.GoogleAdsKeywordsData(themes[0].Keywords)
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	log.Println("Generated", len(themes), "themes")
+	log.Println("Getting optimal keywords for each theme")
+
+	ch := make(chan types.OptimalKeyword, len(themes))
+	adsWg := sync.WaitGroup{}
+	adsWg.Add(len(themes))
+
+	allKeywords := []string{}
+	for _, theme := range themes {
+		allKeywords = append(allKeywords, theme.Keywords...)
+	}
+
+	adsData, err := utils.GoogleAdsKeywordsData(allKeywords)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	keywordMap := map[string]types.GoogleAdsKeyword{}
+	for _, keyword := range adsData {
+		keywordMap[keyword.Keyword] = keyword
+	}
+
+	for _, theme := range themes {
+		go func(theme types.ThemeData) {
+			defer adsWg.Done()
+
+			keywordData := []types.GoogleAdsKeyword{}
+			for _, keyword := range theme.Keywords {
+				k, exists := keywordMap[keyword]
+				if exists {
+					keywordData = append(keywordData, k)
+				} else {
+					log.Println("Keyword", keyword, "not found in Google Ads data")
+				}
+			}
+
+			optimalKeyword := utils.OptimalKeyword(keywordData)
+
+			ch <- types.OptimalKeyword{
+				Keyword:     optimalKeyword,
+				SelectedUrl: theme.SelectedUrl,
+			}
+		}(theme)
+	}
+
+	adsWg.Wait()
+	close(ch)
+
+	optimalKeywords := []types.OptimalKeyword{}
+	for optimalKeyword := range ch {
+		optimalKeywords = append(optimalKeywords, optimalKeyword)
+	}
+
 	resp := types.GenerateCampaignsResponse{
-		Keywords: adsData,
+		OptimalKeywords: optimalKeywords,
 	}
 
 	json.NewEncoder(w).Encode(resp)

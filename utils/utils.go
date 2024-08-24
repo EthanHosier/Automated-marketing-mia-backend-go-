@@ -73,3 +73,21 @@ func VectorFromPostgresFormat(s string) (types.Vector, error) {
 	}
 	return v, nil
 }
+
+func minMax(nums []float32) (float32, float32) {
+	min, max := nums[0], nums[0]
+	for _, num := range nums {
+		if num < min {
+			min = num
+		}
+		if num > max {
+			max = num
+		}
+	}
+	return min, max
+}
+
+func Normalize(x float32, nums []float32) float32 {
+	min, max := minMax(nums)
+	return float32(x-min) / float32(max-min)
+}

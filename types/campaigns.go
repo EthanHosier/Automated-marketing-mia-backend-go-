@@ -8,7 +8,7 @@ type GenerateCampaignsRequest struct {
 }
 
 type GenerateCampaignsResponse struct {
-	Keywords []GoogleAdsKeyword `json:"keywords"`
+	OptimalKeywords []OptimalKeyword `json:"optimalkeywords"`
 }
 
 type ThemeData struct {
@@ -31,3 +31,18 @@ type GoogleAdsResponse struct {
 }
 
 type Vector []float32
+
+type AdsKeywordsResult struct {
+	Theme       string
+	SelectedUrl string
+	AdsData     []GoogleAdsKeyword
+}
+
+type OptimalKeyword struct {
+	Keyword     string `json:"keyword"`
+	SelectedUrl string `json:"selectedUrl"`
+}
+
+type SearchResultsResponse struct {
+	SearchResults int `json:"searchResults"`
+}
