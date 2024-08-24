@@ -122,3 +122,17 @@ func (llm *LLMClient) OpenaiEmbeddings(urls []string) ([]types.Vector, error) {
 
 	return embeddings, nil
 }
+
+func (llm *LLMClient) OpenaiEmbedding(text string) (types.Vector, error) {
+	queryReq := openai.EmbeddingRequest{
+		Input: []string{text},
+		Model: openai.SmallEmbedding3,
+	}
+
+	queryResponse, err := llm.OpenaiClient.CreateEmbeddings(context.Background(), queryReq)
+	if err != nil {
+		return types.Vector{}, fmt.Errorf("error creating query embedding: %w", err)
+	}
+
+	return queryResponse.Data[0].Embedding, nil
+}

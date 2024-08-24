@@ -12,9 +12,15 @@ type GenerateCampaignsResponse struct {
 }
 
 type ThemeData struct {
-	Theme       string   `json:"theme"`
-	Keywords    []string `json:"keywords"`
-	SelectedUrl string   `json:"selectedUrl"`
+	Theme                    string   `json:"theme"`
+	Keywords                 []string `json:"keywords"`
+	UrlDescription           string   `json:"urlDescription"`
+	SelectedUrl              string   `json:"selectedUrl"`
+	InstagramPostDescription string   `json:"instagramPostDescription"`
+	LinkedInPostDescription  string   `json:"linkedInPostDescription"`
+	TwitterXPostDescription  string   `json:"twitterXPostDescription"`
+	FacebookPostDescription  string   `json:"facebookPostDescription"`
+	WhatsAppPostDescription  string   `json:"whatsAppPostDescription"`
 }
 
 type GoogleAdsKeyword struct {
@@ -45,4 +51,14 @@ type OptimalKeyword struct {
 
 type SearchResultsResponse struct {
 	SearchResults int `json:"searchResults"`
+}
+
+type StoredTemplate struct {
+	ID         string   `json:"id"`
+	Title      string   `json:"title"`
+	Platforms  []string `json:"platforms"`
+	ExportType string   `json:"export_type"`
+	Colors     []string `json:"colors"`
+	Fields     string   `json:"fields"`
+	Similarity float32  `json:"similarity"`
 }

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -237,8 +238,9 @@ func (s *Server) generateCampaigns(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	themePrompt := prompts.ThemePrompt(businessSummary, req.TargetAudienceLocation, []string{"https://example.com"}, req.Instructions, req.Backlink, []string{})
+	themePrompt := prompts.ThemePrompt(businessSummary, req.TargetAudienceLocation, req.Instructions, req.Backlink, []string{})
 	themes, err := utils.Themes(themePrompt, s.llmClient)
+	fmt.Printf("themes %+v", themes)
 
 	if err != nil {
 		log.Println("Error generating themes:", err, ". Trying again (1st retry)")
@@ -312,6 +314,21 @@ func (s *Server) generateCampaigns(w http.ResponseWriter, r *http.Request) {
 	optimalKeywords := []types.OptimalKeyword{}
 	for optimalKeyword := range ch {
 		optimalKeywords = append(optimalKeywords, optimalKeyword)
+	}
+
+	for _, optimalKeyword := range optimalKeywords {
+
+		embedding, err := s.llmClient.OpenaiEmbedding(optimalKeyword.Keyword)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		_, err = s.store.GetNearestTemplate(embedding)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	resp := types.GenerateCampaignsResponse{
