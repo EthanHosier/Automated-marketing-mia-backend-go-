@@ -40,6 +40,84 @@ Use these additional instructions to generate the theme, with high priority:
 Here are descriptions of images which the user has provided for the theme generation:
 %v
 `
+
+	researchReport = `You are a marketing research expert.
+
+**Task**: You are tasked with generating a one-page daily marketing research report for a given keyword. You have been given the following data:
+
+for the keyword: "%v"
+Top 5 Google Search Results: URLs and brief descriptions.
+Top 5 News Articles: Titles, sources, and brief summaries.
+Top 5 Instagram Posts: URLs or images, captions, hashtags, and engagement metrics.
+Top 5 LinkedIn Posts: URLs or images, post content, and engagement metrics.
+Top 5 Facebook Posts: URLs or images, post content, and engagement metrics.
+
+**Description**: Use the following format to structure the report and provide the output:
+
+One-Page Daily Marketing Research Report
+
+1. Executive Summary
+Objective: Briefly state the purpose of the research (e.g., "To identify key trends and insights from top online content related to "%v"").
+Date: The date of the report.
+
+2. Top Google Search Results
+Keyword: "%v"
+Top 5 URLs:
+URL 1
+URL 2
+URL 3
+URL 4
+URL 5
+Analysis:
+Common Themes: Briefly list the recurring themes or topics.
+Important Statistics: Highlight key data points or statistics.
+Noteworthy Points: Mention any unique or particularly relevant insights.
+
+3. Top News Articles
+Top 5 Articles:
+Article Title 1 - Source
+Article Title 2 - Source
+Article Title 3 - Source
+Article Title 4 - Source
+Article Title 5 - Source
+Analysis:
+Major News Trends: Summarize the main trends found across the articles.
+Emerging Topics: Identify any new or growing topics of interest.
+Significant Quotes: Include any impactful quotes from the articles.
+
+4. Top Social Media Posts
+
+Instagram:
+Top 5 Posts: List URLs or embed images.
+Analysis:
+Trending Hashtags: List the popular hashtags used.
+Popular Content Types: Describe the types of content that received high engagement.
+Engagement Strategies: Highlight effective strategies observed.
+
+LinkedIn:
+Top 5 Posts: List URLs or embed images.
+Analysis:
+Industry Trends: Summarize the main industry-related insights.
+Professional Insights: Highlight key points shared by industry professionals.
+High-Performing Formats: Note which types of posts were most effective.
+
+Facebook:
+Top 5 Posts: List URLs or embed images.
+Analysis:
+Community Discussions: Summarize the main topics of discussion.
+Popular Topics: Identify which topics received the most engagement.
+Effective Engagement Techniques: Highlight successful engagement methods.
+
+5. SEO and Content Strategy Recommendations
+Content Gaps: Identify specific areas where competitors have content that your team does not.
+Optimization Tips: Suggest specific improvements for existing content based on current trends and insights.
+New Content Ideas: Propose new content topics or formats inspired by the research.
+
+
+**Expected output** : Generate the report using the given data. Ensure the output includes only the report and no other text. Handle any missing or incomplete data gracefully by noting the absence in the appropriate section. Keep the urls as their whole link in the report.
+
+
+Below are all the search data for the keyword "%+v"`
 )
 
 func ThemePrompt(businessSummary types.StoredBusinessSummary, targetAudience string, additionalInstructions string, backlink string, imageDescriptions []string) string {
@@ -54,4 +132,25 @@ func targetAudiencePrompt(ta1 string, ta2 string) string {
 	}
 
 	return ta2
+}
+
+func SummarisePostPrompt(platform string) (string, error) {
+	switch platform {
+	case "linkedIn":
+		return "Summarise the LinkedIn post description: ", nil
+	case "instagram":
+		return "Summarise the Instagram post description: ", nil
+	case "facebook":
+		return "Summarise the Facebook post description: ", nil
+	case "google":
+		return "Summarise the scraped website page content: ", nil
+	case "news":
+		return "Summarise the news article: ", nil
+	default:
+		return "", fmt.Errorf("platform %s not supported", platform)
+	}
+}
+
+func ResearchReportPrompt(keyword string, researchReportData types.ResearchReportData) string {
+	return fmt.Sprintf(researchReport, keyword, keyword, keyword, researchReportData)
 }

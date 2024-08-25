@@ -278,41 +278,69 @@ func (s *Server) generateThemes(businessSummary types.StoredBusinessSummary, tar
 }
 
 func (s *Server) campaignFromTheme(theme types.ThemeData) (string, error) {
-	log.Printf("Generating campaign from theme \"%+v\"\n", theme)
+	log.Printf("Generating campaign from theme \"%v\"\n", theme.Theme)
 
-	urlEmbedding, err := s.llmClient.OpenaiEmbedding(theme.UrlDescription)
+	url, err := s.campaignUrl(theme.UrlDescription)
+	if err != nil {
+		return "", fmt.Errorf("error getting URL for campaign: %w", err)
+	}
+
+	primaryKeyword, secondaryKeyword, err := s.campaignChosenKewords(theme.Keywords)
+	if err != nil {
+		return "", fmt.Errorf("error getting keywords for campaign: %w", err)
+	}
+
+	template, err := s.chosenTemplate(theme.FacebookPostDescription)
+	if err != nil {
+		return "", fmt.Errorf("error getting template for campaign: %w", err)
+	}
+
+	researchReportData, err := utils.ResearchReportData(primaryKeyword, s.llmClient)
+	if err != nil {
+		return "", fmt.Errorf("error getting research report data: %w", err)
+	}
+
+	fmt.Printf("URL: %v\nPrimary Keyword: %v\nSecondary Keyword: %v\nTemplate: %+v\n\n\n\n Reserch report: %+v\n", url, primaryKeyword, secondaryKeyword, template, researchReportData)
+
+	return "", nil
+}
+
+func (s *Server) campaignUrl(urlDescription string) (string, error) {
+	urlEmbedding, err := s.llmClient.OpenaiEmbedding(urlDescription)
 	if err != nil {
 		return "", fmt.Errorf("error getting embedding for URL description: %w", err)
 	}
-
-	fmt.Printf("url embedding: %+v", urlEmbedding)
 
 	nearestUrl, err := s.store.GetNearestUrl(urlEmbedding)
 	if err != nil {
 		return "", fmt.Errorf("error getting nearest URL: %w", err)
 	}
 
-	fmt.Println("nearest url", nearestUrl)
+	return nearestUrl, nil
+}
 
-	adsKeywordData, err := utils.GoogleAdsKeywordsData(theme.Keywords)
+func (s *Server) campaignChosenKewords(keywords []string) (string, string, error) {
+	adsKeywordData, err := utils.GoogleAdsKeywordsData(keywords)
 
 	if err != nil {
-		return "", fmt.Errorf("error getting Google Ads data: %w", err)
+		return "", "", fmt.Errorf("error getting Google Ads data: %w", err)
 	}
 
-	optimalKeyword := utils.OptimalKeyword(adsKeywordData)
+	primaryKeyword, secondaryKeyword := utils.OptimalKeywords(adsKeywordData)
 
-	embedding, err := s.llmClient.OpenaiEmbedding(optimalKeyword)
+	return primaryKeyword, secondaryKeyword, nil
+}
+
+func (s *Server) chosenTemplate(templateDescription string) (*types.NearestTemplateResponse, error) {
+	embedding, err := s.llmClient.OpenaiEmbedding(templateDescription)
 	if err != nil {
-		return "", fmt.Errorf("error getting embedding for optimal keyword: %w", err)
+		return nil, fmt.Errorf("error getting embedding for optimal keyword: %w", err)
 	}
 
 	template, err := s.store.GetNearestTemplate(embedding)
 	if err != nil {
-		return "", fmt.Errorf("error getting nearest template: %w", err)
+		return nil, fmt.Errorf("error getting nearest template: %w", err)
 	}
 
-	fmt.Printf("template %+v", *template)
-
-	return "", nil
+	return template, nil
 }

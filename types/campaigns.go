@@ -71,3 +71,29 @@ type NearestTemplateResponse struct {
 	Fields      []TemplateFields `json:"fields"`
 	Similarity  float32          `json:"similarity"`
 }
+
+type SocialMediaFromKeywordPostResponse struct {
+	Content  string   `json:"content"`
+	Hashtags []string `json:"hashtags"`
+	Url      string   `json:"url"`
+}
+
+type SummarisedPost struct {
+	Content  string   `json:"content"`
+	Url      string   `json:"url"`
+	Hashtags []string `json:"hashtags"`
+}
+
+type SocialMediaFromKeywordResponse struct {
+	Posts    []SocialMediaFromKeywordPostResponse `json:"posts"`
+	Platform string                               `json:"platform"`
+}
+
+type PlatformResearchReport struct {
+	Platform        string           `json:"platform"`
+	SummarisedPosts []SummarisedPost `json:"summarisedPosts"`
+}
+
+type ResearchReportData struct {
+	PlatformResearchReports []PlatformResearchReport `json:"platformResearchReports"`
+}

@@ -2,12 +2,14 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 
+	"github.com/ethanhosier/mia-backend-go/prompts"
 	"github.com/ethanhosier/mia-backend-go/types"
 )
 
@@ -54,7 +56,7 @@ func GoogleAdsKeywordsData(keywords []string) ([]types.GoogleAdsKeyword, error) 
 	return response.Keywords, nil
 }
 
-func OptimalKeyword(keywords []types.GoogleAdsKeyword) string {
+func OptimalKeywords(keywords []types.GoogleAdsKeyword) (string, string) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(keywords))
@@ -92,9 +94,9 @@ func OptimalKeyword(keywords []types.GoogleAdsKeyword) string {
 		}
 	}
 
-	optimalKeyword := getOptimalKeyword(keywordSearchResults, filteredKeywords)
+	primaryKeyword, secondaryKeyword := getOptimalKeyword(keywordSearchResults, filteredKeywords)
 
-	return optimalKeyword
+	return primaryKeyword, secondaryKeyword
 }
 
 func searchResults(keyword string) (int, error) {
@@ -121,7 +123,7 @@ func invertedKd(volume int, results int) float32 {
 	return float32(volume) / float32(results)
 }
 
-func getOptimalKeyword(keywordSearchResults map[string]int, keywords []types.GoogleAdsKeyword) string {
+func getOptimalKeyword(keywordSearchResults map[string]int, keywords []types.GoogleAdsKeyword) (primaryKeyword string, secondaryKeyword string) {
 	allTopBids := []float32{}
 	allLowBids := []float32{}
 	allCompetitionIndexes := []float32{}
@@ -136,16 +138,122 @@ func getOptimalKeyword(keywordSearchResults map[string]int, keywords []types.Goo
 		allInvertedKds = append(allInvertedKds, invertedKd)
 	}
 
-	optimalKeyword, maxVal := "", float32(0)
+	primaryKeyword, secondaryKeyword = "", ""
+	maxVal, secondMaxVal := float32(0), float32(0)
 
 	for i, keyword := range keywords {
-		score := 0.05*Normalize(float32(keyword.HighTopOfPageBid), allTopBids) + 0.05*Normalize(float32(keyword.LowTopOfPageBid), allLowBids) + 0.3*Normalize(float32(keyword.CompetitionIndex), allCompetitionIndexes) + 0.5*Normalize(allInvertedKds[i], allInvertedKds)
+		score := 0.05*Normalize(float32(keyword.HighTopOfPageBid), allTopBids) +
+			0.05*Normalize(float32(keyword.LowTopOfPageBid), allLowBids) +
+			0.3*Normalize(float32(keyword.CompetitionIndex), allCompetitionIndexes) +
+			0.5*Normalize(allInvertedKds[i], allInvertedKds)
 
 		if score > maxVal {
+			secondMaxVal = maxVal
+			secondaryKeyword = primaryKeyword
+
 			maxVal = score
-			optimalKeyword = keyword.Keyword
+			primaryKeyword = keyword.Keyword
+		} else if score > secondMaxVal {
+			secondMaxVal = score
+			secondaryKeyword = keyword.Keyword
 		}
 	}
 
-	return optimalKeyword
+	return primaryKeyword, secondaryKeyword
+}
+
+func ResearchReportData(keyword string, llmClient *LLMClient) (types.ResearchReportData, error) {
+	platforms := []string{"linkedIn", "facebook", "instagram", "google", "news"}
+
+	ch := make(chan *types.PlatformResearchReport, len(platforms))
+	wg := sync.WaitGroup{}
+	wg.Add(len(platforms))
+
+	for _, platform := range platforms {
+		go func(platform string) {
+			defer wg.Done()
+			data, err := platformResearchReport(keyword, platform, llmClient)
+			if err != nil {
+				log.Println("Error getting platform research report:", err)
+				return
+			}
+
+			ch <- data
+		}(platform)
+	}
+	wg.Wait()
+	close(ch)
+
+	platformResearchReports := []types.PlatformResearchReport{}
+	for platformResearchReport := range ch {
+		platformResearchReports = append(platformResearchReports, *platformResearchReport)
+	}
+
+	return types.ResearchReportData{
+		PlatformResearchReports: platformResearchReports,
+	}, nil
+}
+
+func platformResearchReport(keyword string, platform string, llmClient *LLMClient) (*types.PlatformResearchReport, error) {
+	fmt.Println(SocialMediaFromKeywordScraperUrl + "?keyword=" + url.QueryEscape(keyword) + "&platform=" + platform + "&maxResults=5")
+	resp, err := http.Get(SocialMediaFromKeywordScraperUrl + "?keyword=" + url.QueryEscape(keyword) + "&platform=" + platform + "&maxResults=5")
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var response types.SocialMediaFromKeywordResponse
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		return nil, err
+	}
+
+	ch := make(chan types.SummarisedPost, len(response.Posts))
+	wg := sync.WaitGroup{}
+	wg.Add(len(response.Posts))
+
+	for _, post := range response.Posts {
+		go func(post *types.SocialMediaFromKeywordPostResponse) {
+			defer wg.Done()
+			summarised, err := summarisedPost(post, response.Platform, llmClient)
+			if err != nil {
+				log.Println("Error summarising post:", err)
+				return
+			}
+
+			ch <- *summarised
+		}(&post)
+	}
+
+	wg.Wait()
+	close(ch)
+
+	summarisedPosts := []types.SummarisedPost{}
+	for summarisedPost := range ch {
+		summarisedPosts = append(summarisedPosts, summarisedPost)
+	}
+
+	return &types.PlatformResearchReport{
+		Platform:        response.Platform,
+		SummarisedPosts: summarisedPosts,
+	}, nil
+}
+
+func summarisedPost(post *types.SocialMediaFromKeywordPostResponse, platform string, llmClient *LLMClient) (*types.SummarisedPost, error) {
+	prompt, err := prompts.SummarisePostPrompt(platform)
+	if err != nil {
+		return nil, err
+	}
+
+	completion, err := llmClient.OpenaiCompletion(prompt + post.Content)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.SummarisedPost{
+		Content:  completion,
+		Url:      post.Url,
+		Hashtags: post.Hashtags,
+	}, nil
 }
