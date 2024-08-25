@@ -300,7 +300,13 @@ func (s *Server) campaignFromTheme(theme types.ThemeData) (string, error) {
 		return "", fmt.Errorf("error getting research report data: %w", err)
 	}
 
-	fmt.Printf("URL: %v\nPrimary Keyword: %v\nSecondary Keyword: %v\nTemplate: %+v\n\n\n\n Reserch report: %+v\n", url, primaryKeyword, secondaryKeyword, template, researchReportData)
+	researchReportPrompt := prompts.ResearchReportPrompt(primaryKeyword, researchReportData)
+	researchReport, err := s.llmClient.OpenaiCompletion(researchReportPrompt)
+	if err != nil {
+		return "", fmt.Errorf("error generating research report: %w", err)
+	}
+
+	fmt.Printf("URL: %v\nPrimary Keyword: %v\nSecondary Keyword: %v\nTemplate: %+v\n\n\n\n Reserch report: %v\n", url, primaryKeyword, secondaryKeyword, template, researchReport)
 
 	return "", nil
 }

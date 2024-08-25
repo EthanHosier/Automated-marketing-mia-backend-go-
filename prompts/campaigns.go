@@ -118,6 +118,15 @@ New Content Ideas: Propose new content topics or formats inspired by the researc
 
 
 Below are all the search data for the keyword "%+v"`
+
+	researchReport2 = `
+You are a marketing research expert. Please write a descriptive report based on findings about the keyword "%v" The report should span ~1000 words.
+	You are to include a summary at the start of what the report is about, then desriptive findings for Google, News, Instagram, LinkedIn and Facebook. For each platform, you should list the top results found, their urls, and deap analysis about the content of the scraped data, with examples. Per each platform you should include common themes, important statistics, noteworthy points and Trending Hashtags. You should then provide a descriptive summary at then end, which highlights SEO and Content Strategy Recommendations, with examples. More specifically, you should describe Content Gaps: Identify specific areas where competitors have content that your team does not.
+Optimization Tips: Suggest specific improvements for existing content based on current trends and insights.
+New Content Ideas: Propose new content topics or formats inspired by the research.
+
+	Here is the data you are to work with: %+v
+`
 )
 
 func ThemePrompt(businessSummary types.StoredBusinessSummary, targetAudience string, additionalInstructions string, backlink string, imageDescriptions []string) string {
@@ -152,5 +161,5 @@ func SummarisePostPrompt(platform string) (string, error) {
 }
 
 func ResearchReportPrompt(keyword string, researchReportData types.ResearchReportData) string {
-	return fmt.Sprintf(researchReport, keyword, keyword, keyword, researchReportData)
+	return fmt.Sprintf(researchReport, keyword, researchReportData)
 }

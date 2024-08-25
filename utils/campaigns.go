@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -195,7 +194,6 @@ func ResearchReportData(keyword string, llmClient *LLMClient) (types.ResearchRep
 }
 
 func platformResearchReport(keyword string, platform string, llmClient *LLMClient) (*types.PlatformResearchReport, error) {
-	fmt.Println(SocialMediaFromKeywordScraperUrl + "?keyword=" + url.QueryEscape(keyword) + "&platform=" + platform + "&maxResults=5")
 	resp, err := http.Get(SocialMediaFromKeywordScraperUrl + "?keyword=" + url.QueryEscape(keyword) + "&platform=" + platform + "&maxResults=5")
 	if err != nil {
 		return nil, err
