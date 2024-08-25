@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethanhosier/mia-backend-go/prompts"
 	"github.com/ethanhosier/mia-backend-go/types"
+	"github.com/sashabaranov/go-openai"
 )
 
 func PageScreenshot(url string) (string, error) {
@@ -86,7 +87,7 @@ func BusinessPageSummaries(url string, timeout int, llmClient *LLMClient) ([]str
 	for _, page := range pages {
 		go func(page string) {
 			defer wg.Done()
-			summary, err := llmClient.LlamaSummarise(prompts.ScrapedWebPageSummary + page)
+			summary, err := llmClient.LlamaSummarise(prompts.ScrapedWebPageSummary+page, 200)
 
 			if err != nil {
 				log.Println("Error getting llama summary:", err)
@@ -124,7 +125,7 @@ func scrapedPages(url string, timeout int) ([]string, error) {
 }
 
 func BusinessSummaryPoints(jsonString string, llmClient *LLMClient) (*types.BusinessSummary, error) {
-	completion, err := llmClient.OpenaiCompletion(prompts.BusinessSummary + jsonString)
+	completion, err := llmClient.OpenaiCompletion(prompts.BusinessSummary+jsonString, openai.GPT4o)
 
 	if err != nil {
 		return nil, err

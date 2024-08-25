@@ -12,6 +12,7 @@ import (
 	"github.com/ethanhosier/mia-backend-go/storage"
 	"github.com/ethanhosier/mia-backend-go/types"
 	"github.com/ethanhosier/mia-backend-go/utils"
+	"github.com/sashabaranov/go-openai"
 )
 
 type Server struct {
@@ -244,7 +245,7 @@ func (s *Server) generateCampaigns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	campaign, err := s.campaignFromTheme(themes[0])
+	campaign, err := s.campaignFromTheme(themes[0], businessSummary)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -277,7 +278,7 @@ func (s *Server) generateThemes(businessSummary types.StoredBusinessSummary, tar
 	return themes, nil
 }
 
-func (s *Server) campaignFromTheme(theme types.ThemeData) (string, error) {
+func (s *Server) campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusinessSummary) (string, error) {
 	log.Printf("Generating campaign from theme \"%v\"\n", theme.Theme)
 
 	url, err := s.campaignUrl(theme.UrlDescription)
@@ -300,13 +301,41 @@ func (s *Server) campaignFromTheme(theme types.ThemeData) (string, error) {
 		return "", fmt.Errorf("error getting research report data: %w", err)
 	}
 
+	for _, platformResearchReport := range researchReportData.PlatformResearchReports {
+		fmt.Println(platformResearchReport.Platform)
+		for _, post := range platformResearchReport.SummarisedPosts {
+			fmt.Printf("%+v\n\n", post)
+		}
+	}
+
 	researchReportPrompt := prompts.ResearchReportPrompt(primaryKeyword, researchReportData)
-	researchReport, err := s.llmClient.OpenaiCompletion(researchReportPrompt)
+	researchReport, err := s.llmClient.OpenaiCompletion(researchReportPrompt, openai.GPT4o)
 	if err != nil {
 		return "", fmt.Errorf("error generating research report: %w", err)
 	}
 
-	fmt.Printf("URL: %v\nPrimary Keyword: %v\nSecondary Keyword: %v\nTemplate: %+v\n\n\n\n Reserch report: %v\n", url, primaryKeyword, secondaryKeyword, template, researchReport)
+	fmt.Printf("URL: %v\nPrimary Keyword: %v\nSecondary Keyword: %v\nTemplate: %+v\n\n\n\n Reserch report: %v\n", url, primaryKeyword, secondaryKeyword, *template, researchReport)
+
+	scrapedPageBody, err := utils.PageTextContents(url)
+	if err != nil {
+		return "", fmt.Errorf("error getting page text contents: %w", err)
+	}
+
+	summarisedPageBody, err := s.llmClient.OpenaiCompletion(prompts.BacklinkUrlPageSummary+scrapedPageBody, openai.GPT4oMini)
+	if err != nil {
+		return "", fmt.Errorf("error summarising page body: %w", err)
+	}
+
+	templatePrompt := prompts.TemplatePrompt("linkedIn", businessSummary, theme.Theme, primaryKeyword, secondaryKeyword, url, summarisedPageBody, researchReportData, template.Fields)
+
+	fmt.Println("template prompt: ", templatePrompt)
+
+	templateCompletion, err := s.llmClient.OpenaiCompletion(templatePrompt, openai.GPT4o)
+	if err != nil {
+		return "", fmt.Errorf("error generating template completion: %w", err)
+	}
+
+	fmt.Println("\n\n\ntemplate completion: \n\n", templateCompletion)
 
 	return "", nil
 }

@@ -10,10 +10,11 @@ import (
 
 	"github.com/ethanhosier/mia-backend-go/prompts"
 	"github.com/ethanhosier/mia-backend-go/types"
+	"github.com/sashabaranov/go-openai"
 )
 
 func Themes(themePrompt string, llmClient *LLMClient) ([]types.ThemeData, error) {
-	completion, err := llmClient.OpenaiCompletion(themePrompt)
+	completion, err := llmClient.OpenaiCompletion(themePrompt, openai.GPT4o)
 
 	if err != nil {
 		return nil, err
@@ -244,7 +245,7 @@ func summarisedPost(post *types.SocialMediaFromKeywordPostResponse, platform str
 		return nil, err
 	}
 
-	completion, err := llmClient.OpenaiCompletion(prompt + post.Content)
+	completion, err := llmClient.OpenaiCompletion(prompt+post.Content, openai.GPT4oMini)
 	if err != nil {
 		return nil, err
 	}

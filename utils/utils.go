@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"math"
+	"net/http"
 	"strings"
 
 	"github.com/ethanhosier/mia-backend-go/types"
@@ -90,4 +91,23 @@ func minMax(nums []float32) (float32, float32) {
 func Normalize(x float32, nums []float32) float32 {
 	min, max := minMax(nums)
 	return float32(x-min) / float32(max-min)
+}
+
+func PageTextContents(url string) (string, error) {
+	endpoint := SinglePageBodyTextScraperUrl + url
+
+	resp, err := http.Get(endpoint)
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+
+	var response types.SinglePageBodyTextScraperResponse
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		return "", err
+	}
+
+	return response.Content, nil
 }

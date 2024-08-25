@@ -46,11 +46,19 @@ func createOpenaiClient() *openai.Client {
 	return openai.NewClient(apiKey)
 }
 
-func (llm *LLMClient) LlamaSummarise(prompt string) (string, error) {
+func (llm *LLMClient) LlamaSummarise(prompt string, maxTokens int) (string, error) {
+
+	if maxTokens > 1000 {
+		return "", fmt.Errorf("max tokens must be less than 1000")
+	}
+
+	if maxTokens < 1 {
+		return "", fmt.Errorf("max tokens must be greater than 0")
+	}
 
 	payload := types.BedrockRequest{
 		Prompt:      prompt,
-		MaxTokens:   200,
+		MaxTokens:   maxTokens,
 		Temperature: 0.5,
 	}
 
@@ -62,7 +70,7 @@ func (llm *LLMClient) LlamaSummarise(prompt string) (string, error) {
 
 	output, err := llm.BedrockClient.InvokeModel(context.Background(), &bedrockruntime.InvokeModelInput{
 		Body:        payloadBytes,
-		ModelId:     aws.String("meta.llama3-1-8b-instruct-v1:0"),
+		ModelId:     aws.String("meta.llama3-1-70b-instruct-v1:0"),
 		ContentType: aws.String("application/json"),
 		Accept:      aws.String("*/*"),
 	})
@@ -81,11 +89,11 @@ func (llm *LLMClient) LlamaSummarise(prompt string) (string, error) {
 	return response.Generation, nil
 }
 
-func (llm *LLMClient) OpenaiCompletion(prompt string) (string, error) {
+func (llm *LLMClient) OpenaiCompletion(prompt string, model string) (string, error) {
 	resp, err := llm.OpenaiClient.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
-			Model: openai.GPT4o20240806,
+			Model: model,
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    openai.ChatMessageRoleUser,
