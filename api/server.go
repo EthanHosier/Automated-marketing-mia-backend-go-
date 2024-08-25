@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -231,16 +232,33 @@ func (s *Server) generateCampaigns(w http.ResponseWriter, r *http.Request) {
 	}
 
 	businessSummary, err := s.store.GetBusinessSummary(userID)
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 
 	}
 
-	themePrompt := prompts.ThemePrompt(businessSummary, req.TargetAudienceLocation, req.Instructions, req.Backlink, []string{})
+	themes, err := s.generateThemes(businessSummary, req.TargetAudienceLocation, req.Instructions, req.Backlink, []string{})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	campaign, err := s.campaignFromTheme(themes[0])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Println("generated campaign", campaign)
+	resp := types.GenerateCampaignsResponse{}
+
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (s *Server) generateThemes(businessSummary types.StoredBusinessSummary, targetAudienceLocation string, additionalInstructions string, backlink string, imageDescriptions []string) ([]types.ThemeData, error) {
+	themePrompt := prompts.ThemePrompt(businessSummary, targetAudienceLocation, additionalInstructions, backlink, imageDescriptions)
 	themes, err := utils.Themes(themePrompt, s.llmClient)
-	fmt.Printf("themes %+v", themes)
 
 	if err != nil {
 		log.Println("Error generating themes:", err, ". Trying again (1st retry)")
@@ -251,89 +269,50 @@ func (s *Server) generateCampaigns(w http.ResponseWriter, r *http.Request) {
 			themes, err = utils.Themes(themePrompt, s.llmClient)
 
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+				return nil, errors.New("error generating themes")
 			}
 		}
 	}
+
+	return themes, nil
+}
+
+func (s *Server) campaignFromTheme(theme types.ThemeData) (string, error) {
+	log.Printf("Generating campaign from theme \"%+v\"\n", theme)
+
+	urlEmbedding, err := s.llmClient.OpenaiEmbedding(theme.UrlDescription)
+	if err != nil {
+		return "", fmt.Errorf("error getting embedding for URL description: %w", err)
+	}
+
+	fmt.Printf("url embedding: %+v", urlEmbedding)
+
+	nearestUrl, err := s.store.GetNearestUrl(urlEmbedding)
+	if err != nil {
+		return "", fmt.Errorf("error getting nearest URL: %w", err)
+	}
+
+	fmt.Println("nearest url", nearestUrl)
+
+	adsKeywordData, err := utils.GoogleAdsKeywordsData(theme.Keywords)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return "", fmt.Errorf("error getting Google Ads data: %w", err)
 	}
 
-	log.Println("Generated", len(themes), "themes")
-	log.Println("Getting optimal keywords for each theme")
+	optimalKeyword := utils.OptimalKeyword(adsKeywordData)
 
-	ch := make(chan types.OptimalKeyword, len(themes))
-	adsWg := sync.WaitGroup{}
-	adsWg.Add(len(themes))
-
-	allKeywords := []string{}
-	for _, theme := range themes {
-		allKeywords = append(allKeywords, theme.Keywords...)
-	}
-
-	adsData, err := utils.GoogleAdsKeywordsData(allKeywords)
-
+	embedding, err := s.llmClient.OpenaiEmbedding(optimalKeyword)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return "", fmt.Errorf("error getting embedding for optimal keyword: %w", err)
 	}
 
-	keywordMap := map[string]types.GoogleAdsKeyword{}
-	for _, keyword := range adsData {
-		keywordMap[keyword.Keyword] = keyword
+	template, err := s.store.GetNearestTemplate(embedding)
+	if err != nil {
+		return "", fmt.Errorf("error getting nearest template: %w", err)
 	}
 
-	for _, theme := range themes {
-		go func(theme types.ThemeData) {
-			defer adsWg.Done()
+	fmt.Printf("template %+v", *template)
 
-			keywordData := []types.GoogleAdsKeyword{}
-			for _, keyword := range theme.Keywords {
-				k, exists := keywordMap[keyword]
-				if exists {
-					keywordData = append(keywordData, k)
-				} else {
-					log.Println("Keyword", keyword, "not found in Google Ads data")
-				}
-			}
-
-			optimalKeyword := utils.OptimalKeyword(keywordData)
-
-			ch <- types.OptimalKeyword{
-				Keyword:     optimalKeyword,
-				SelectedUrl: theme.SelectedUrl,
-			}
-		}(theme)
-	}
-
-	adsWg.Wait()
-	close(ch)
-
-	optimalKeywords := []types.OptimalKeyword{}
-	for optimalKeyword := range ch {
-		optimalKeywords = append(optimalKeywords, optimalKeyword)
-	}
-
-	for _, optimalKeyword := range optimalKeywords {
-
-		embedding, err := s.llmClient.OpenaiEmbedding(optimalKeyword.Keyword)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		_, err = s.store.GetNearestTemplate(embedding)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
-
-	resp := types.GenerateCampaignsResponse{
-		OptimalKeywords: optimalKeywords,
-	}
-
-	json.NewEncoder(w).Encode(resp)
+	return "", nil
 }

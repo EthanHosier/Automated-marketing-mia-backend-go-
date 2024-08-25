@@ -7,5 +7,6 @@ type Storage interface {
 	GetBusinessSummary(userId string) (types.StoredBusinessSummary, error)
 	StoreSitemap(userId string, urls []string, embeddings []types.Vector) error
 	GetSitemap(userId string) ([]types.StoredSitemapUrl, error)
-	GetNearestTemplate(types.Vector) (string, error)
+	GetNearestTemplate(types.Vector) (*types.NearestTemplateResponse, error)
+	GetNearestUrl(types.Vector) (string, error)
 }
