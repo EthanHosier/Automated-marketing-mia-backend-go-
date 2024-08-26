@@ -24,6 +24,7 @@ type Server struct {
 
 func NewServer(listenAddr string, store storage.Storage, llmClient *utils.LLMClient) *Server {
 	s := &Server{listenAddr: listenAddr, store: store, router: http.NewServeMux(), llmClient: llmClient}
+
 	s.routes()
 	return s
 }
@@ -335,7 +336,14 @@ func (s *Server) campaignFromTheme(theme types.ThemeData, businessSummary types.
 		return "", fmt.Errorf("error generating template completion: %w", err)
 	}
 
-	fmt.Println("\n\n\ntemplate completion: \n\n", templateCompletion)
+	extractedTemplate := utils.ExtractJsonObj(templateCompletion, utils.CurlyBracket)
+
+	var populatedTemplate types.PopulatedTemplate
+	err = json.Unmarshal([]byte(extractedTemplate), &populatedTemplate)
+
+	if err != nil {
+		return "", fmt.Errorf("error unmarshalling populated template: %w", err)
+	}
 
 	return "", nil
 }

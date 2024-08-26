@@ -209,11 +209,11 @@ func targetAudiencePrompt(ta1 string, ta2 string) string {
 func SummarisePostPrompt(platform string) (string, error) {
 	switch platform {
 	case "linkedIn":
-		return "Summarise the LinkedIn post description: ", nil
+		return "Extract the linkedin post: ", nil
 	case "instagram":
-		return "Summarise the Instagram post description: ", nil
+		return "Extract the instagram post: ", nil
 	case "facebook":
-		return "Summarise the Facebook post description: ", nil
+		return "Extract the facebook post ", nil
 	case "google":
 		return "Summarise the scraped website page content: ", nil
 	case "news":

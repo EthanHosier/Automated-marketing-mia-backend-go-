@@ -97,3 +97,13 @@ type PlatformResearchReport struct {
 type ResearchReportData struct {
 	PlatformResearchReports []PlatformResearchReport `json:"platformResearchReports"`
 }
+
+type PopulatedField struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type PopulatedTemplate struct {
+	Fields  []PopulatedField `json:"fields"`
+	Caption string           `json:"caption"`
+}

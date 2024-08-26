@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 	supa "github.com/nedpals/supabase-go"
@@ -25,6 +26,11 @@ func main() {
 	llmClient := utils.CreateLLMClient()
 
 	server := api.NewServer(*listenAddr, store, llmClient)
+
+	go func() {
+		utils.StartCanvaTokenRefresher(time.Minute * 30)
+	}()
+
 	log.Printf("Starting server on %s", *listenAddr)
 	log.Fatal(server.Start())
 }

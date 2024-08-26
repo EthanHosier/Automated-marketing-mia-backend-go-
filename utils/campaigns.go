@@ -245,7 +245,7 @@ func summarisedPost(post *types.SocialMediaFromKeywordPostResponse, platform str
 		return nil, err
 	}
 
-	completion, err := llmClient.OpenaiCompletion(prompt+post.Content, openai.GPT4oMini)
+	completion, err := llmClient.LlamaSummarise(prompt+post.Content, 200)
 	if err != nil {
 		return nil, err
 	}
