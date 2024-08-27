@@ -214,3 +214,24 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 	fmt.Printf("Response: %+v\n", responseBody)
 	return nil
 }
+
+func IsValidImageURL(url string) bool {
+	// Common image file extensions
+	validExtensions := []string{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
+	for _, ext := range validExtensions {
+		if strings.HasSuffix(strings.ToLower(url), ext) {
+			return true
+		}
+	}
+	return false
+}
+
+func CleanText(text string) string {
+	// Trim leading and trailing whitespace
+	text = strings.TrimSpace(text)
+
+	// Replace multiple spaces, newlines, and tabs with a single space
+	text = strings.Join(strings.Fields(text), " ")
+
+	return text
+}

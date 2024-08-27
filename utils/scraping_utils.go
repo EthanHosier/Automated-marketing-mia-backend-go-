@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/ethanhosier/mia-backend-go/prompts"
@@ -56,7 +57,29 @@ func Sitemap(url string, timeout int) ([]string, error) {
 		return nil, err
 	}
 
-	return urls, nil
+	// Filter out non-URL websites (e.g., ending in .xml, .pdf)
+	var filteredUrls []string
+	for _, u := range urls {
+		if !strings.HasSuffix(u, ".xml") && !strings.HasSuffix(u, ".pdf") {
+			filteredUrls = append(filteredUrls, u)
+		}
+	}
+
+	return filteredUrls, nil
+}
+
+func ScrapeSinglePage(url string) (string, error) {
+	resp, err := http.Get(SinglePageHtmlScraperUrl + "?url=" + url)
+	if err != nil {
+		return "", err
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), nil
 }
 
 func BusinessPageSummaries(url string, timeout int, llmClient *LLMClient) ([]string, error) {

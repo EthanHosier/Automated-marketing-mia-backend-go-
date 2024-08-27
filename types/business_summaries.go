@@ -11,6 +11,7 @@ type BusinessSummariesRequest struct {
 
 type BusinessSummariesResponse struct {
 	BusinessSummaries BusinessSummary `json:"businessSummaries"`
+	ImageUrls         []string        `json:"imageUrls"`
 }
 
 type BusinessSummary struct {
@@ -50,4 +51,9 @@ func ValidateBusinessSummariesRequest(req BusinessSummariesRequest) error {
 	}
 
 	return nil
+}
+
+type UrlHtmlPair struct {
+	Url  string `json:"url"`
+	Html string `json:"html"`
 }

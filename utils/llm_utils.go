@@ -70,7 +70,7 @@ func (llm *LLMClient) LlamaSummarise(prompt string, maxTokens int) (string, erro
 
 	output, err := llm.BedrockClient.InvokeModel(context.Background(), &bedrockruntime.InvokeModelInput{
 		Body:        payloadBytes,
-		ModelId:     aws.String("meta.llama3-1-70b-instruct-v1:0"),
+		ModelId:     aws.String("meta.llama3-1-8b-instruct-v1:0"),
 		ContentType: aws.String("application/json"),
 		Accept:      aws.String("*/*"),
 	})
