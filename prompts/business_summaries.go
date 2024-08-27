@@ -7,7 +7,7 @@ const (
 
 **Task**: Analyze the web scraped pages data and provide the following insights in a structured format:
           1. The business name.
-          2. A concise Business Summary in under 150 words.
+          2. A meticulously detailed Business Summary in about 300 words
           3. The brand voice and tone in under 50 words.
           4. Target region of the business.
           5. Target audience / customer profile of the business in under 50 words.

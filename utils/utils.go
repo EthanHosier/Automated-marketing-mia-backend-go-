@@ -216,6 +216,10 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 }
 
 func IsValidImageURL(url string) bool {
+	if !strings.HasPrefix(url, "http") {
+		return false
+	}
+
 	// Common image file extensions
 	validExtensions := []string{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
 	for _, ext := range validExtensions {

@@ -141,7 +141,7 @@ func scrapeWebsitePagesAndStore(urls []string) ([]string, []string, error) {
 		return nil, nil, err
 	}
 
-	imageSet := make(map[string]struct{}) // Use a map to store unique image URLs
+	imageSet := make(map[string]int) // Use a map to store unique image URLs
 	pageContents := []string{}
 
 	for _, page := range sortedPages {
@@ -161,7 +161,9 @@ func scrapeWebsitePagesAndStore(urls []string) ([]string, []string, error) {
 
 		// Add image URLs to the map
 		for _, imgURL := range imageUrls {
-			imageSet[imgURL] = struct{}{}
+			if utils.IsValidImageURL(imgURL) {
+				imageSet[imgURL] = imageSet[imgURL] + 1
+			}
 		}
 
 		pageContents = append(pageContents, text)
@@ -170,9 +172,8 @@ func scrapeWebsitePagesAndStore(urls []string) ([]string, []string, error) {
 	// Convert the map to a slice
 	images := make([]string, 0, len(imageSet))
 	for imgURL := range imageSet {
-		if utils.IsValidImageURL(imgURL) {
-			images = append(images, imgURL)
-		}
+
+		images = append(images, imgURL)
 	}
 
 	return images, pageContents, nil
