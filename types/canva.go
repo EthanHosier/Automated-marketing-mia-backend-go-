@@ -6,3 +6,12 @@ type Token struct {
 	ExpiresIn    int64  `json:"expires_in"`
 	TokenType    string `json:"token_type"`
 }
+
+type Job struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
+
+type UpdateTemplateResponse struct {
+	Job Job `json:"job"`
+}

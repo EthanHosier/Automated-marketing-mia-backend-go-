@@ -141,7 +141,7 @@ func refreshAccessToken() (string, error) {
 func StartCanvaTokenRefresher(interval time.Duration) {
 	_, err := refreshAccessToken()
 	if err != nil {
-		log.Fatalln("Error refreshing token: %v", err)
+		log.Fatalf("Error refreshing token: %v", err)
 	}
 
 	ticker := time.NewTicker(interval)

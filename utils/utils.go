@@ -1,10 +1,13 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ethanhosier/mia-backend-go/types"
 )
@@ -110,4 +113,104 @@ func PageTextContents(url string) (string, error) {
 	}
 
 	return response.Content, nil
+}
+
+func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTemplate types.PopulatedTemplate) error {
+	populatedTemplateFieldMap := map[string]string{}
+
+	for _, field := range populatedTemplate.Fields {
+		populatedTemplateFieldMap[field.Name] = field.Value
+	}
+
+	inputData := map[string]map[string]string{}
+
+	for _, field := range nearestTemplate.Fields {
+		if field.Type != "text" {
+			continue
+		}
+
+		inputData[field.Name] = map[string]string{
+			"type": "text",
+			"text": populatedTemplateFieldMap[field.Name],
+		}
+	}
+
+	requestData := map[string]interface{}{
+		"brand_template_id": nearestTemplate.ID,
+		"data":              inputData,
+	}
+
+	accessToken, err := AccessToken()
+	if err != nil {
+		return err
+	}
+
+	url := "https://api.canva.com/rest/v1/autofills"
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		return fmt.Errorf("Error marshalling request data:", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("Error creating request:", err)
+
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("Error sending request:", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Received non-OK response: %s\n", resp.Status)
+	}
+
+	var responseBody types.UpdateTemplateResponse
+	if err := json.NewDecoder(resp.Body).Decode(&responseBody); err != nil {
+		return fmt.Errorf("Error decoding response body:", err)
+	}
+
+	var jobStatusResponse map[string]interface{}
+	for {
+		fmt.Println("Checking job status...")
+		time.Sleep(2 * time.Second) // Wait for 2 seconds before checking status
+
+		statusURL := fmt.Sprintf("https://api.canva.com/rest/v1/autofills/%s", responseBody.Job.ID)
+		req, err := http.NewRequest("GET", statusURL, nil)
+		if err != nil {
+			return fmt.Errorf("Error creating request:", err)
+
+		}
+
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		resp, err := client.Do(req)
+		if err != nil {
+			return fmt.Errorf("Error sending request:", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("Received non-OK response: %s\n", resp.Status)
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&jobStatusResponse); err != nil {
+			return fmt.Errorf("Error decoding response body:", err)
+
+		}
+		fmt.Printf("Job status: %+v", jobStatusResponse)
+
+		if jobStatusResponse["status"] == "success" {
+			break
+		}
+	}
+	fmt.Printf("Job status: %+v", jobStatusResponse)
+
+	fmt.Printf("Response: %+v\n", responseBody)
+	return nil
 }
