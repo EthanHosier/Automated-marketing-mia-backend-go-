@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -31,28 +32,8 @@ func BusinessSummaries(store storage.Storage, llmClient *utils.LLMClient) http.H
 			return
 		}
 
-		// check user hasn't already generated business summaries or sitemap
-		checkWg := sync.WaitGroup{}
-		checkWg.Add(1)
-
-		valid := true
-
-		go func() {
-			defer checkWg.Done()
-			_, err := store.GetBusinessSummary(userID)
-			if err == nil {
-				valid = false
-			}
-		}()
-
-		_, err := store.GetSitemap(userID)
-		if err == nil {
-			valid = false
-		}
-
-		checkWg.Wait()
-		if !valid {
-			http.Error(w, "User has already generated business summaries or sitemap", http.StatusBadRequest)
+		if alreadyHasSitemapOrBusinessSummary(store, userID) {
+			http.Error(w, "User already has sitemap or business summary", http.StatusBadRequest)
 			return
 		}
 
@@ -61,59 +42,17 @@ func BusinessSummaries(store storage.Storage, llmClient *utils.LLMClient) http.H
 
 		go func() {
 			defer sitemapWg.Done()
-
-			urls, err := utils.Sitemap(req.Url, 15)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			uniqueUrls := utils.RemoveDuplicates(urls)
-			embeddings, err := llmClient.OpenaiEmbeddings(uniqueUrls)
+			err := scrapeSitemap(req, userID, llmClient, store)
 
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			log.Println("Storing sitemap for user", userID, "with", len(uniqueUrls), "unique URLs")
-			err = store.StoreSitemap(userID, urls, embeddings)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+				fmt.Println("Error scraping sitemap:", err)
 			}
 		}()
 
-		summaries, err := utils.BusinessPageSummaries(req.Url, 15, llmClient)
-
+		businessSummaries, err := scrapeBusinessSummaries(req.Url, llmClient)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		}
-
-		jsonData, err := json.Marshal(summaries)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		jsonString := string(jsonData)
-
-		businessSummaries, err := utils.BusinessSummaryPoints(jsonString, llmClient)
-
-		if err != nil {
-			log.Println("Error getting business summary points:", err, ". Trying again (1st retry)")
-			businessSummaries, err = utils.BusinessSummaryPoints(jsonString, llmClient)
-
-			if err != nil {
-				log.Println("Error getting business summary points:", err, ". Trying again (2nd retry)")
-				businessSummaries, err = utils.BusinessSummaryPoints(jsonString, llmClient)
-
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			}
 		}
 
 		log.Println("Storing business summaries for user", userID)
@@ -128,7 +67,6 @@ func BusinessSummaries(store storage.Storage, llmClient *utils.LLMClient) http.H
 		}
 
 		sitemapWg.Wait()
-
 		json.NewEncoder(w).Encode(resp)
 	}
 }
@@ -160,4 +98,80 @@ func GetBusinessSummaries(store storage.Storage) http.HandlerFunc {
 
 		json.NewEncoder(w).Encode(resp)
 	}
+}
+
+func alreadyHasSitemapOrBusinessSummary(store storage.Storage, userID string) bool {
+	checkWg := sync.WaitGroup{}
+	checkWg.Add(1)
+
+	valid := true
+
+	go func() {
+		defer checkWg.Done()
+		_, err := store.GetBusinessSummary(userID)
+		if err == nil {
+			valid = false
+		}
+	}()
+
+	_, err := store.GetSitemap(userID)
+	if err == nil {
+		valid = false
+	}
+
+	checkWg.Wait()
+
+	return !valid
+}
+
+func scrapeSitemap(req types.BusinessSummariesRequest, userID string, llmClient *utils.LLMClient, store storage.Storage) error {
+	urls, err := utils.Sitemap(req.Url, 15)
+	if err != nil {
+		return err
+	}
+
+	uniqueUrls := utils.RemoveDuplicates(urls)
+	embeddings, err := llmClient.OpenaiEmbeddings(uniqueUrls)
+
+	if err != nil {
+		return err
+	}
+
+	log.Println("Storing sitemap for user", userID, "with", len(uniqueUrls), "unique URLs")
+	err = store.StoreSitemap(userID, urls, embeddings)
+
+	return err
+}
+
+func scrapeBusinessSummaries(url string, llmClient *utils.LLMClient) (*types.BusinessSummary, error) {
+	summaries, err := utils.BusinessPageSummaries(url, 15, llmClient)
+
+	if err != nil {
+		return nil, err
+	}
+
+	jsonData, err := json.Marshal(summaries)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonString := string(jsonData)
+
+	businessSummaries, err := utils.BusinessSummaryPoints(jsonString, llmClient)
+
+	if err != nil {
+		log.Println("Error getting business summary points:", err, ". Trying again (1st retry)")
+		businessSummaries, err = utils.BusinessSummaryPoints(jsonString, llmClient)
+
+		if err != nil {
+			log.Println("Error getting business summary points:", err, ". Trying again (2nd retry)")
+			businessSummaries, err = utils.BusinessSummaryPoints(jsonString, llmClient)
+
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return businessSummaries, nil
 }
