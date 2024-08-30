@@ -155,8 +155,10 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 	err = json.Unmarshal([]byte(extractedTemplate), &populatedTemplate)
 
 	if err != nil {
-		return "", fmt.Errorf("error unmarshalling populated template: %w", err)
+		return "", fmt.Errorf("error unmarshalling populated template: %w. Extracted template was %+v", err, populatedTemplate)
 	}
+
+	fmt.Printf("populated template: %+v", populatedTemplate)
 
 	err = utils.PopulateTemplate(*template, populatedTemplate)
 	if err != nil {

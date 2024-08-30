@@ -273,7 +273,7 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 	}
 
 	var jobStatusResponse types.UpdateTemplateJobStatus
-	for jobStatusResponse.Job.Status != "success" {
+	for jobStatusResponse.Job.Status != "success" && jobStatusResponse.Job.Status != "failed" {
 		fmt.Println("Checking job status...")
 		time.Sleep(2 * time.Second) // Wait for 2 seconds before checking status
 
@@ -301,6 +301,11 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 		}
 		fmt.Printf("Job status: %+v\n", jobStatusResponse)
 	}
+
+	if jobStatusResponse.Job.Status == "failed" {
+		return fmt.Errorf("job failed")
+	}
+
 	fmt.Printf("Job status: %+v\n", jobStatusResponse)
 
 	fmt.Printf("Response: %+v\n", responseBody)
