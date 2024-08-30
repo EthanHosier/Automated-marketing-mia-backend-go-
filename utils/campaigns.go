@@ -1,7 +1,13 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"image"
+	"image/draw"
+	"image/png"
 	"log"
 	"net/http"
 	"net/url"
@@ -211,4 +217,41 @@ func platformResearchReport(keyword string, platform string) (*types.PlatformRes
 		Platform: response.Platform,
 		Posts:    response.Posts,
 	}, nil
+}
+
+func createColorImage(hexColor string) ([]byte, error) {
+	c, err := HexToColor(hexColor)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a new RGBA image with the desired size.
+	img := image.NewRGBA(image.Rect(0, 0, 100, 100))
+
+	// Fill the image with the color.
+	draw.Draw(img, img.Bounds(), &image.Uniform{c}, image.Point{}, draw.Src)
+
+	// Encode the image to a buffer.
+	var buf bytes.Buffer
+	err = png.Encode(&buf, img)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+func GetBase64ColorImageURL(hexColor string) (string, error) {
+	imageData, err := createColorImage(hexColor)
+	if err != nil {
+		return "", err
+	}
+
+	// Encode the image data to a base64 string.
+	base64Image := base64.StdEncoding.EncodeToString(imageData)
+
+	// Format as a data URL.
+	dataURL := fmt.Sprintf("data:image/png;base64,%s", base64Image)
+
+	return dataURL, nil
 }

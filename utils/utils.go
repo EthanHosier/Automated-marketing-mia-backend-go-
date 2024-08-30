@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image/color"
 	"math"
 	"net/http"
 	"strconv"
@@ -183,11 +184,12 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 		Job struct {
 			ID     string `json:"id"`
 			Result struct {
+				Type   string `json:"type"`
 				Design struct {
-					CreatedAt time.Time `json:"created_at"`
-					ID        string    `json:"id"`
-					Title     string    `json:"title"`
-					UpdatedAt time.Time `json:"updated_at"`
+					CreatedAt int64  `json:"created_at"` // Use int64 for Unix timestamp
+					ID        string `json:"id"`
+					Title     string `json:"title"`
+					UpdatedAt int64  `json:"updated_at"` // Use int64 for Unix timestamp
 					Thumbnail struct {
 						URL string `json:"url"`
 					} `json:"thumbnail"`
@@ -203,7 +205,7 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 	}
 
 	var jobStatusResponse JobStatus
-	for {
+	for jobStatusResponse.Job.Status != "success" {
 		fmt.Println("Checking job status...")
 		time.Sleep(2 * time.Second) // Wait for 2 seconds before checking status
 
@@ -229,13 +231,9 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 			return fmt.Errorf("error decoding response body: %v", err)
 
 		}
-		fmt.Printf("Job status: %+v", jobStatusResponse)
-
-		if jobStatusResponse.Job.Status == "success" {
-			break
-		}
+		fmt.Printf("Job status: %+v\n", jobStatusResponse)
 	}
-	fmt.Printf("Job status: %+v", jobStatusResponse)
+	fmt.Printf("Job status: %+v\n", jobStatusResponse)
 
 	fmt.Printf("Response: %+v\n", responseBody)
 	return nil
@@ -308,4 +306,29 @@ func FirstNumberInString(s string) (int, error) {
 	}
 
 	return number, nil
+}
+
+func HexToColor(hex string) (color.Color, error) {
+	if strings.HasPrefix(hex, "#") {
+		hex = hex[1:]
+	}
+
+	if len(hex) != 6 {
+		return nil, fmt.Errorf("invalid hex color format")
+	}
+
+	r, err := strconv.ParseUint(hex[0:2], 16, 8)
+	if err != nil {
+		return nil, err
+	}
+	g, err := strconv.ParseUint(hex[2:4], 16, 8)
+	if err != nil {
+		return nil, err
+	}
+	b, err := strconv.ParseUint(hex[4:6], 16, 8)
+	if err != nil {
+		return nil, err
+	}
+
+	return color.RGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: 255}, nil
 }

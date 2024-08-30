@@ -35,6 +35,13 @@ func main() {
 		utils.StartCanvaTokenRefresher(time.Minute * 30)
 	}()
 
+	color, err := utils.GetBase64ColorImageURL("#2EE6C0")
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	log.Println(string(color))
+
 	log.Printf("Starting server on %s", *listenAddr)
 	log.Fatal(server.Start())
 
