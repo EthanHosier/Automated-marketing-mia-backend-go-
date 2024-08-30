@@ -16,7 +16,7 @@ type UpdateTemplateResponse struct {
 	Job Job `json:"job"`
 }
 
-type JobStatus struct {
+type UpdateTemplateJobStatus struct {
 	Job struct {
 		ID     string `json:"id"`
 		Result struct {
@@ -38,4 +38,29 @@ type JobStatus struct {
 		} `json:"result"`
 		Status string `json:"status"`
 	} `json:"job"`
+}
+
+type UploadAssetResponse struct {
+	Job UploadAssetJob `json:"job"`
+}
+
+type UploadAssetJob struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+	Asset  Asset  `json:"asset"`
+}
+
+type Asset struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Tags      []string  `json:"tags"`
+	CreatedAt int64     `json:"created_at"`
+	UpdatedAt int64     `json:"updated_at"`
+	Thumbnail Thumbnail `json:"thumbnail"`
+}
+
+type Thumbnail struct {
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	URL    string `json:"url"`
 }

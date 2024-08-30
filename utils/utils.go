@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image/color"
+	"io"
 	"math"
 	"net/http"
 	"strconv"
@@ -194,4 +195,23 @@ func HexToColor(hex string) (color.Color, error) {
 	}
 
 	return color.RGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: 255}, nil
+}
+
+func DownloadImage(imageURL string) ([]byte, error) {
+	resp, err := http.Get(imageURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to download image: %s", resp.Status)
+	}
+
+	imgData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return imgData, nil
 }

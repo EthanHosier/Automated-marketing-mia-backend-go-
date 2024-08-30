@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -271,7 +272,7 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 		return fmt.Errorf("error decoding response body:", err)
 	}
 
-	var jobStatusResponse types.JobStatus
+	var jobStatusResponse types.UpdateTemplateJobStatus
 	for jobStatusResponse.Job.Status != "success" {
 		fmt.Println("Checking job status...")
 		time.Sleep(2 * time.Second) // Wait for 2 seconds before checking status
@@ -319,4 +320,83 @@ func IsValidImageURL(url string) bool {
 		}
 	}
 	return false
+}
+
+func UploadAsset(asset []byte, name string) (*types.UploadAssetResponse, error) {
+	accessToken, err := AccessToken()
+	if err != nil {
+		log.Fatalf("Error getting access token: %v", err)
+	}
+
+	url := "https://api.canva.com/rest/v1/asset-uploads"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(asset))
+	if err != nil {
+		log.Fatalf("Error creating request: %v", err)
+	}
+
+	metadata := map[string]string{
+		"name_base64": base64.StdEncoding.EncodeToString([]byte(name)),
+	}
+	metadataJSON, err := json.Marshal(metadata)
+
+	if err != nil {
+		log.Fatalf("Error marshalling metadata: %v", err)
+	}
+
+	req.Header = http.Header{
+		"Authorization":         {"Bearer " + accessToken},
+		"Content-Type":          {"application/octet-stream"},
+		"Asset-Upload-Metadata": {string(metadataJSON)},
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Error sending request: %v", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("received non-OK response: %s\n", body)
+	}
+
+	var uploadAssetResponse types.UploadAssetResponse
+	if err := json.NewDecoder(resp.Body).Decode(&uploadAssetResponse); err != nil {
+		return nil, fmt.Errorf("error decoding response body: %v", err)
+	}
+
+	for uploadAssetResponse.Job.Status != "success" && uploadAssetResponse.Job.Status != "failed" {
+		fmt.Println("Checking asset upload status...")
+		time.Sleep(2 * time.Second) // Wait for 2 seconds before checking status
+
+		statusURL := fmt.Sprintf("https://api.canva.com/rest/v1/asset-uploads/%s", uploadAssetResponse.Job.ID)
+		req, err := http.NewRequest("GET", statusURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error creating request: %v", err)
+		}
+
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("error sending request: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("received non-OK response: %s", resp.Status)
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&uploadAssetResponse); err != nil {
+			return nil, fmt.Errorf("error decoding response body: %v", err)
+		}
+		fmt.Printf("Asset upload status: %+v\n", uploadAssetResponse)
+	}
+
+	if uploadAssetResponse.Job.Status == "failed" {
+		return nil, fmt.Errorf("asset upload failed")
+	}
+
+	return &uploadAssetResponse, nil
 }

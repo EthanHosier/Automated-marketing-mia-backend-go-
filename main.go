@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 
@@ -9,6 +10,7 @@ import (
 
 	"github.com/joho/godotenv"
 	supa "github.com/nedpals/supabase-go"
+
 	// "github.com/sashabaranov/go-openai"
 
 	"github.com/ethanhosier/mia-backend-go/api"
@@ -42,8 +44,21 @@ func main() {
 
 	log.Println(string(color))
 
-	log.Printf("Starting server on %s", *listenAddr)
-	log.Fatal(server.Start())
+	// log.Printf("Starting server on %s", *listenAddr)
+	// log.Fatal(server.Start())
+	fmt.Println(server)
+
+	imageBytes, err := utils.DownloadImage("https://images.pexels.com/photos/45201/kitty-cat-kitten-pet-45201.jpeg")
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	response, err := utils.UploadAsset(imageBytes, "cat image")
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	log.Printf("%+v", *response)
 
 	// resp, err := llmClient.OpenaiImageCompletion("Give me the index of the image which best represents a cat. This should just be a number, with starting index being 0, and nothing else", []string{"https://images.pexels.com/photos/45201/kitty-cat-kitten-pet-45201.jpeg", "https://cdn.britannica.com/79/232779-050-6B0411D7/German-Shepherd-dog-Alsatian.jpg"}, openai.GPT4o)
 
