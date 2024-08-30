@@ -110,6 +110,44 @@ func (llm *LLMClient) OpenaiCompletion(prompt string, model string) (string, err
 	return resp.Choices[0].Message.Content, nil
 }
 
+func (llm *LLMClient) OpenaiImageCompletion(prompt string, images []string, model string) (string, error) {
+	imageMessages := []openai.ChatCompletionMessage{}
+
+	for _, image := range images {
+		imageMessages = append(imageMessages, openai.ChatCompletionMessage{
+			Role: openai.ChatMessageRoleUser,
+			MultiContent: []openai.ChatMessagePart{
+				{
+					Type:     openai.ChatMessagePartTypeImageURL,
+					ImageURL: &openai.ChatMessageImageURL{URL: image},
+				},
+			},
+		})
+	}
+
+	// Create the full list of messages, starting with the system message
+	messages := append([]openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: prompt,
+		},
+	}, imageMessages...)
+
+	resp, err := llm.OpenaiClient.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model:    model,
+			Messages: messages,
+		},
+	)
+
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}
+
 func (llm *LLMClient) OpenaiEmbeddings(urls []string) ([]types.Vector, error) {
 	queryReq := openai.EmbeddingRequest{
 		Input: urls,

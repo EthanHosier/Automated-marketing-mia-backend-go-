@@ -24,6 +24,7 @@ type BusinessSummary struct {
 
 type StoredBusinessSummary struct {
 	ID              string `json:"id"`
+	BusinessName    string `json:"businessName"`
 	BusinessSummary string `json:"businessSummary"`
 	BrandVoice      string `json:"brandVoice"`
 	TargetRegion    string `json:"targetRegion"`

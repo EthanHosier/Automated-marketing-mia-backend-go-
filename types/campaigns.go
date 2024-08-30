@@ -12,15 +12,11 @@ type GenerateCampaignsResponse struct {
 }
 
 type ThemeData struct {
-	Theme                    string   `json:"theme"`
-	Keywords                 []string `json:"keywords"`
-	UrlDescription           string   `json:"urlDescription"`
-	SelectedUrl              string   `json:"selectedUrl"`
-	InstagramPostDescription string   `json:"instagramPostDescription"`
-	LinkedInPostDescription  string   `json:"linkedInPostDescription"`
-	TwitterXPostDescription  string   `json:"twitterXPostDescription"`
-	FacebookPostDescription  string   `json:"facebookPostDescription"`
-	WhatsAppPostDescription  string   `json:"whatsAppPostDescription"`
+	Theme                         string   `json:"theme"`
+	Keywords                      []string `json:"keywords"`
+	Url                           string   `json:"url"`
+	SelectedUrl                   string   `json:"selectedUrl"`
+	ImageCanvaTemplateDescription string   `json:"imageCanvaTemplateDescription"`
 }
 
 type GoogleAdsKeyword struct {
@@ -90,8 +86,8 @@ type SocialMediaFromKeywordResponse struct {
 }
 
 type PlatformResearchReport struct {
-	Platform        string           `json:"platform"`
-	SummarisedPosts []SummarisedPost `json:"summarisedPosts"`
+	Platform string                               `json:"platform"`
+	Posts    []SocialMediaFromKeywordPostResponse `json:"summarisedPosts"`
 }
 
 type ResearchReportData struct {

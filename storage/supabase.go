@@ -27,6 +27,7 @@ func NewSupabaseStorage(client *supa.Client) *SupabaseStorage {
 func (s *SupabaseStorage) StoreBusinessSummary(userId string, businessSummary types.BusinessSummary) error {
 	row := types.StoredBusinessSummary{
 		ID:              userId,
+		BusinessName:    businessSummary.BusinessName,
 		BusinessSummary: businessSummary.BusinessSummary,
 		BrandVoice:      businessSummary.BrandVoice,
 		TargetRegion:    businessSummary.TargetRegion,
@@ -183,4 +184,65 @@ func (s *SupabaseStorage) GetNearestUrl(vector types.Vector) (string, error) {
 	}
 
 	return result[0].Url, nil
+}
+
+func (s *SupabaseStorage) GetRandomUrls(userID string, numUrls int) ([]string, error) {
+	url := os.Getenv("SUPABASE_URL") + "/rest/v1/rpc/random_urls"
+
+	payload := map[string]interface{}{
+		"sitemap_id": userID,
+		"url_count":  numUrls,
+	}
+
+	// Convert the payload to JSON
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Println("Error marshalling payload:", err)
+		return nil, err
+	}
+
+	// Create a new POST request
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		log.Println("Error creating request:", err)
+		return nil, err
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("apikey", os.Getenv("SUPABASE_SERVICE_KEY"))
+
+	// Create a new HTTP client and send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println("Error making request:", err)
+		return nil, err
+	}
+	defer resp.Body.Close() // Ensure the response body is closed
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("Error reading response body:", err)
+		return nil, err
+	}
+
+	type RandomUrlsResponse struct {
+		Url string `json:"url"`
+		ID  string `json:"id"`
+	}
+
+	var result []RandomUrlsResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		log.Println("Error unmarshalling response:", err)
+		return nil, err
+	}
+
+	var urls []string
+	for _, r := range result {
+		urls = append(urls, r.Url)
+	}
+
+	return urls, nil
 }

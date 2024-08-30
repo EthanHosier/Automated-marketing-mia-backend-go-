@@ -162,3 +162,23 @@ func BusinessSummaryPoints(jsonString string, llmClient *LLMClient) (*types.Busi
 
 	return &businessSummary, err
 }
+
+func PageContentsScrape(url string) (*types.BodyContentsScrapeResponse, error) {
+	resp, err := http.Get(SinglePageContentScraperUrl + url)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var response types.BodyContentsScrapeResponse
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}

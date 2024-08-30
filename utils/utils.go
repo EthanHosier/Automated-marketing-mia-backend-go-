@@ -3,11 +3,14 @@ package utils
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/ethanhosier/mia-backend-go/types"
 )
@@ -153,7 +156,7 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return fmt.Errorf("Error creating request:", err)
+		return fmt.Errorf("error creating request: %v", err)
 
 	}
 
@@ -163,7 +166,7 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("Error sending request:", err)
+		return fmt.Errorf("error sending request: %v", err)
 	}
 	defer resp.Body.Close()
 
@@ -176,7 +179,30 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 		return fmt.Errorf("Error decoding response body:", err)
 	}
 
-	var jobStatusResponse map[string]interface{}
+	type JobStatus struct {
+		Job struct {
+			ID     string `json:"id"`
+			Result struct {
+				Design struct {
+					CreatedAt time.Time `json:"created_at"`
+					ID        string    `json:"id"`
+					Title     string    `json:"title"`
+					UpdatedAt time.Time `json:"updated_at"`
+					Thumbnail struct {
+						URL string `json:"url"`
+					} `json:"thumbnail"`
+					URL  string `json:"url"`
+					URLs struct {
+						EditURL string `json:"edit_url"`
+						ViewURL string `json:"view_url"`
+					} `json:"urls"`
+				} `json:"design"`
+			} `json:"result"`
+			Status string `json:"status"`
+		} `json:"job"`
+	}
+
+	var jobStatusResponse JobStatus
 	for {
 		fmt.Println("Checking job status...")
 		time.Sleep(2 * time.Second) // Wait for 2 seconds before checking status
@@ -184,28 +210,28 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 		statusURL := fmt.Sprintf("https://api.canva.com/rest/v1/autofills/%s", responseBody.Job.ID)
 		req, err := http.NewRequest("GET", statusURL, nil)
 		if err != nil {
-			return fmt.Errorf("Error creating request:", err)
+			return fmt.Errorf("error creating request: %v", err)
 
 		}
 
 		req.Header.Set("Authorization", "Bearer "+accessToken)
 		resp, err := client.Do(req)
 		if err != nil {
-			return fmt.Errorf("Error sending request:", err)
+			return fmt.Errorf("error sending request: %vs", err)
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("Received non-OK response: %s\n", resp.Status)
+			return fmt.Errorf("received non-OK response: %s\n", resp.Status)
 		}
 
 		if err := json.NewDecoder(resp.Body).Decode(&jobStatusResponse); err != nil {
-			return fmt.Errorf("Error decoding response body:", err)
+			return fmt.Errorf("error decoding response body: %v", err)
 
 		}
 		fmt.Printf("Job status: %+v", jobStatusResponse)
 
-		if jobStatusResponse["status"] == "success" {
+		if jobStatusResponse.Job.Status == "success" {
 			break
 		}
 	}
@@ -238,4 +264,48 @@ func CleanText(text string) string {
 	text = strings.Join(strings.Fields(text), " ")
 
 	return text
+}
+
+func StringifyWebsiteData(data types.WebsiteData) string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("Title: %s\n", data.Title))
+	sb.WriteString(fmt.Sprintf("Meta Description: %s\n", data.MetaDescription))
+
+	sb.WriteString("Headings:\n")
+	for key, values := range data.Headings {
+		sb.WriteString(fmt.Sprintf("  %s: %s\n", key, strings.Join(values, ", ")))
+	}
+
+	sb.WriteString(fmt.Sprintf("Keywords: %s\n", data.Keywords))
+	sb.WriteString(fmt.Sprintf("Links: %s\n", strings.Join(data.Links, ", ")))
+	sb.WriteString(fmt.Sprintf("Summary: %s\n", data.Summary))
+	sb.WriteString(fmt.Sprintf("Categories: %s\n", strings.Join(data.Categories, ", ")))
+
+	return sb.String()
+}
+
+func FirstNumberInString(s string) (int, error) {
+	num := ""
+	for _, char := range s {
+		if unicode.IsDigit(char) {
+			num += string(char)
+		} else if len(num) > 0 {
+			// If we've found a number and hit a non-digit character, break out
+			break
+		}
+	}
+
+	// If no digits were found, return an error
+	if num == "" {
+		return 0, errors.New("no number found in the string")
+	}
+
+	// Convert the string of digits to an integer
+	number, err := strconv.Atoi(num)
+	if err != nil {
+		return 0, err
+	}
+
+	return number, nil
 }

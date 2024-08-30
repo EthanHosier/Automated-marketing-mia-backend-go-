@@ -12,7 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethanhosier/mia-backend-go/prompts"
 	"github.com/ethanhosier/mia-backend-go/types"
+	"github.com/sashabaranov/go-openai"
 )
 
 const (
@@ -155,4 +157,54 @@ func StartCanvaTokenRefresher(interval time.Duration) {
 			log.Println("Token refreshed successfully")
 		}
 	}
+}
+
+func PickBestImages(candidateImages []string, campaignInfo string, imageFields []types.TemplateFields, llmClient *LLMClient) ([]string, error) {
+	bestImagesWg := sync.WaitGroup{}
+
+	if len(candidateImages) > 50 {
+		return nil, fmt.Errorf("> 50 candidate images")
+	}
+
+	if len(candidateImages) == 0 {
+		return nil, fmt.Errorf("no candidate images supplied")
+	}
+
+	type BestImagePair struct {
+		fieldIndex     int
+		bestImageIndex int
+	}
+
+	bestImagePairChan := make(chan BestImagePair, len(imageFields))
+	bestImagesWg.Add(len(imageFields))
+
+	for i, field := range imageFields {
+		prompt := prompts.PickBestImagePrompt(campaignInfo, field)
+		go func(prompt string, i int) {
+			defer bestImagesWg.Done()
+
+			bestImage, err := llmClient.OpenaiImageCompletion(prompt, candidateImages, openai.GPT4o)
+			if err != nil {
+				log.Printf("Error getitng openai image completion: %v", err)
+				bestImagePairChan <- BestImagePair{i, 0}
+			}
+
+			index, err := FirstNumberInString(bestImage)
+			if err != nil {
+				log.Printf("Error converting number to string: %v", err)
+				bestImagePairChan <- BestImagePair{i, 0}
+			}
+			bestImagePairChan <- BestImagePair{i, index}
+		}(prompt, i)
+	}
+
+	bestImagesWg.Wait()
+	close(bestImagePairChan)
+
+	bestImages := make([]string, len(imageFields))
+	for pair := range bestImagePairChan {
+		bestImages[pair.fieldIndex] = candidateImages[pair.bestImageIndex]
+	}
+
+	return bestImages, nil
 }

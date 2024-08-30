@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/ethanhosier/mia-backend-go/prompts"
 	"github.com/ethanhosier/mia-backend-go/storage"
@@ -22,6 +23,19 @@ func GenerateCampaigns(store storage.Storage, llmClient *utils.LLMClient) http.H
 			return
 		}
 
+		pageContents := []types.BodyContentsScrapeResponse{}
+		pageContentsWg := sync.WaitGroup{}
+		pageContentsWg.Add(1)
+
+		go func() {
+			defer pageContentsWg.Done()
+			var err error
+			pageContents, err = candidatePages(userID, store)
+			if err != nil {
+				fmt.Println("Error getting candidate pages:", err)
+			}
+		}()
+
 		var req types.GenerateCampaignsRequest
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -33,14 +47,16 @@ func GenerateCampaigns(store storage.Storage, llmClient *utils.LLMClient) http.H
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-
 		}
 
-		themes, err := generateThemes(businessSummary, req.TargetAudienceLocation, req.Instructions, req.Backlink, []string{}, llmClient)
+		pageContentsWg.Wait()
+
+		themes, err := generateThemes(pageContents, businessSummary, req.TargetAudienceLocation, req.Instructions, req.Backlink, []string{}, llmClient)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		fmt.Println(themes)
 
 		campaign, err := campaignFromTheme(themes[0], businessSummary, llmClient, store)
 		if err != nil {
@@ -55,8 +71,9 @@ func GenerateCampaigns(store storage.Storage, llmClient *utils.LLMClient) http.H
 	}
 }
 
-func generateThemes(businessSummary types.StoredBusinessSummary, targetAudienceLocation string, additionalInstructions string, backlink string, imageDescriptions []string, llmClient *utils.LLMClient) ([]types.ThemeData, error) {
-	themePrompt := prompts.ThemePrompt(businessSummary, targetAudienceLocation, additionalInstructions, backlink, imageDescriptions)
+func generateThemes(pageContents []types.BodyContentsScrapeResponse, businessSummary types.StoredBusinessSummary, targetAudienceLocation string, additionalInstructions string, backlink string, imageDescriptions []string, llmClient *utils.LLMClient) ([]types.ThemeData, error) {
+
+	themePrompt := prompts.ThemePrompt(pageContents, businessSummary, targetAudienceLocation, additionalInstructions, backlink, imageDescriptions)
 	themes, err := utils.Themes(themePrompt, llmClient)
 
 	if err != nil {
@@ -79,17 +96,16 @@ func generateThemes(businessSummary types.StoredBusinessSummary, targetAudienceL
 func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusinessSummary, llmClient *utils.LLMClient, store storage.Storage) (string, error) {
 	log.Printf("Generating campaign from theme \"%v\"\n", theme.Theme)
 
-	url, err := campaignUrl(theme.UrlDescription, store, llmClient)
-	if err != nil {
-		return "", fmt.Errorf("error getting URL for campaign: %w", err)
-	}
+	url := theme.Url
 
 	primaryKeyword, secondaryKeyword, err := campaignChosenKewords(theme.Keywords)
 	if err != nil {
 		return "", fmt.Errorf("error getting keywords for campaign: %w", err)
 	}
 
-	template, err := chosenTemplate(theme.FacebookPostDescription, llmClient, store)
+	fmt.Println("Primary keyword: ", primaryKeyword, "Secondary keyword: ", secondaryKeyword, "URL: ", url)
+
+	template, err := chosenTemplate(theme.ImageCanvaTemplateDescription, llmClient, store)
 	if err != nil {
 		return "", fmt.Errorf("error getting template for campaign: %w", err)
 	}
@@ -101,7 +117,7 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 
 	for _, platformResearchReport := range researchReportData.PlatformResearchReports {
 		fmt.Println(platformResearchReport.Platform)
-		for _, post := range platformResearchReport.SummarisedPosts {
+		for _, post := range platformResearchReport.Posts {
 			fmt.Printf("%+v\n\n", post)
 		}
 	}
@@ -124,7 +140,7 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 		return "", fmt.Errorf("error summarising page body: %w", err)
 	}
 
-	templatePrompt := prompts.TemplatePrompt("linkedIn", businessSummary, theme.Theme, primaryKeyword, secondaryKeyword, url, summarisedPageBody, researchReportData, template.Fields)
+	templatePrompt := prompts.TemplatePrompt("instagram", businessSummary, theme.Theme, primaryKeyword, secondaryKeyword, url, summarisedPageBody, researchReportData, template.Fields)
 
 	fmt.Println("template prompt: ", templatePrompt)
 
@@ -188,4 +204,41 @@ func chosenTemplate(templateDescription string, llmClient *utils.LLMClient, stor
 	}
 
 	return template, nil
+}
+
+func candidatePages(userID string, store storage.Storage) ([]types.BodyContentsScrapeResponse, error) {
+	randomUrls, err := store.GetRandomUrls(userID, 5)
+	fmt.Println(randomUrls)
+	if err != nil {
+		return nil, fmt.Errorf("error getting random URLs: %w", err)
+	}
+
+	pageContentsWg := sync.WaitGroup{}
+	pageContentsWg.Add(len(randomUrls))
+
+	pageContentsCh := make(chan types.BodyContentsScrapeResponse, len(randomUrls))
+
+	for _, url := range randomUrls {
+		go func(url string) {
+			defer pageContentsWg.Done()
+
+			pageContents, err := utils.PageContentsScrape(url)
+			if err != nil {
+				fmt.Println("Error scraping page contents:", err)
+				return
+			}
+
+			pageContentsCh <- *pageContents
+		}(url)
+	}
+
+	pageContentsWg.Wait()
+	close(pageContentsCh)
+
+	pageContents := []types.BodyContentsScrapeResponse{}
+	for contents := range pageContentsCh {
+		pageContents = append(pageContents, contents)
+	}
+
+	return pageContents, nil
 }

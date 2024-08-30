@@ -67,7 +67,7 @@ func BusinessSummaries2(store storage.Storage, llmClient *utils.LLMClient) http.
 			return
 		}
 
-		imageUrls, bodyTexts, err := scrapeWebsitePagesAndStore(sortedUrls[:min(maxBusinessSummaryUrls, len(sortedUrls))])
+		imageUrls, bodyTexts, err := scrapeWebsitePages(sortedUrls[:min(maxBusinessSummaryUrls, len(sortedUrls))])
 
 		for _, text := range bodyTexts {
 			fmt.Println(text)
@@ -92,7 +92,7 @@ func BusinessSummaries2(store storage.Storage, llmClient *utils.LLMClient) http.
 
 		businessSummaryResponse := types.BusinessSummariesResponse{
 			BusinessSummaries: types.BusinessSummary{
-				BusinessName:    "",
+				BusinessName:    businessSummaries.BusinessName,
 				BusinessSummary: businessSummaries.BusinessSummary,
 				BrandVoice:      businessSummaries.BrandVoice,
 				TargetRegion:    businessSummaries.TargetRegion,
@@ -101,79 +101,50 @@ func BusinessSummaries2(store storage.Storage, llmClient *utils.LLMClient) http.
 			ImageUrls: imageUrls,
 		}
 
+		store.StoreBusinessSummary(userID, *businessSummaries)
+
 		saveSitemapWg.Wait()
 
 		json.NewEncoder(w).Encode(businessSummaryResponse)
 	}
 }
 
-func scrapeWebsitePagesAndStore(urls []string) ([]string, []string, error) {
+func scrapeWebsitePages(urls []string) ([]string, []string, error) {
 	n := len(urls)
 
 	pageWg := sync.WaitGroup{}
 	pageWg.Add(n)
 
-	pageCh := make(chan types.UrlHtmlPair, n)
+	pageCh := make(chan types.BodyContentsScrapeResponse, n)
 
 	for _, url := range urls {
 		go func(url string) {
 			defer pageWg.Done()
-			html, err := utils.ScrapeSinglePage(url)
+
+			pageContents, err := utils.PageContentsScrape(url)
 			if err != nil {
-				log.Println("Error scraping page:", err)
+				fmt.Println("Error scraping page contents:", err)
 				return
 			}
-			pageCh <- types.UrlHtmlPair{Html: html, Url: url}
+			pageCh <- *pageContents
 		}(url)
 	}
-
 	pageWg.Wait()
 	close(pageCh)
 
-	pages := []types.UrlHtmlPair{}
-	for page := range pageCh {
-		pages = append(pages, page)
-	}
-
-	sortedPages, err := utils.SortURLPairsByProximity(pages)
-	if err != nil {
-		log.Println("Error sorting pages by proximity:", err)
-		return nil, nil, err
-	}
-
-	imageSet := make(map[string]int) // Use a map to store unique image URLs
+	imageSet := make(map[string]struct{})
 	pageContents := []string{}
 
-	for _, page := range sortedPages {
-		var imageUrls []string
-		var text string
-
-		if false {
-			imageUrls, text, err = utils.ImageUrlsAndText(page.Html)
-
-		} else {
-			imageUrls, text, err = utils.ExtractGeneralWebsiteData(page.Html)
+	for contents := range pageCh {
+		for _, imageUrl := range contents.ImageUrls {
+			imageSet[imageUrl] = struct{}{}
 		}
-		if err != nil {
-			log.Println("Error getting image URLs and text:", err)
-			return nil, nil, err
-		}
-
-		// Add image URLs to the map
-		for _, imgURL := range imageUrls {
-			if utils.IsValidImageURL(imgURL) {
-				imageSet[imgURL] = imageSet[imgURL] + 1
-			}
-		}
-
-		pageContents = append(pageContents, text)
+		pageContents = append(pageContents, utils.StringifyWebsiteData(contents.Contents))
 	}
 
-	// Convert the map to a slice
 	images := make([]string, 0, len(imageSet))
-	for imgURL := range imageSet {
-
-		images = append(images, imgURL)
+	for imageUrl := range imageSet {
+		images = append(images, imageUrl)
 	}
 
 	return images, pageContents, nil
@@ -276,13 +247,13 @@ func alreadyHasSitemapOrBusinessSummary(store storage.Storage, userID string) bo
 	go func() {
 		defer checkWg.Done()
 		businessSummary, err := store.GetBusinessSummary(userID)
-		if err == nil || businessSummary.BusinessSummary == "" {
+		if err != nil || businessSummary.BusinessSummary == "" {
 			hasSitemap = false
 		}
 	}()
 
-	urls, _ := store.GetSitemap(userID)
-	if len(urls) == 0 {
+	urls, err := store.GetSitemap(userID)
+	if len(urls) == 0 || err != nil {
 		hasSitemap = false
 	}
 

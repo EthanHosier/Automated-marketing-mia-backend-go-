@@ -9,4 +9,5 @@ const (
 	SocialMediaFromKeywordScraperUrl = "https://rszmhstlr0.execute-api.eu-west-2.amazonaws.com/social-media-from-keyword-scraper"
 	SinglePageBodyTextScraperUrl     = "https://33lz2xpok8.execute-api.eu-west-2.amazonaws.com/single-page-body-text-scraper?url="
 	SinglePageHtmlScraperUrl         = "https://5s8ecjywfi.execute-api.eu-west-2.amazonaws.com/single-page-html-scraper"
+	SinglePageContentScraperUrl      = "https://1ap5f1w55b.execute-api.eu-west-2.amazonaws.com/single-page-content-scraper?url="
 )

@@ -9,4 +9,5 @@ type Storage interface {
 	GetSitemap(userId string) ([]types.StoredSitemapUrl, error)
 	GetNearestTemplate(types.Vector) (*types.NearestTemplateResponse, error)
 	GetNearestUrl(types.Vector) (string, error)
+	GetRandomUrls(string, int) ([]string, error)
 }

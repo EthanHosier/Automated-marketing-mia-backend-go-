@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ethanhosier/mia-backend-go/prompts"
 	"github.com/ethanhosier/mia-backend-go/types"
 	"github.com/sashabaranov/go-openai"
 )
@@ -172,7 +171,7 @@ func ResearchReportData(keyword string, llmClient *LLMClient) (types.ResearchRep
 	for _, platform := range platforms {
 		go func(platform string) {
 			defer wg.Done()
-			data, err := platformResearchReport(keyword, platform, llmClient)
+			data, err := platformResearchReport(keyword, platform)
 			if err != nil {
 				log.Println("Error getting platform research report:", err)
 				return
@@ -194,7 +193,7 @@ func ResearchReportData(keyword string, llmClient *LLMClient) (types.ResearchRep
 	}, nil
 }
 
-func platformResearchReport(keyword string, platform string, llmClient *LLMClient) (*types.PlatformResearchReport, error) {
+func platformResearchReport(keyword string, platform string) (*types.PlatformResearchReport, error) {
 	resp, err := http.Get(SocialMediaFromKeywordScraperUrl + "?keyword=" + url.QueryEscape(keyword) + "&platform=" + platform + "&maxResults=5")
 	if err != nil {
 		return nil, err
@@ -208,51 +207,8 @@ func platformResearchReport(keyword string, platform string, llmClient *LLMClien
 		return nil, err
 	}
 
-	ch := make(chan types.SummarisedPost, len(response.Posts))
-	wg := sync.WaitGroup{}
-	wg.Add(len(response.Posts))
-
-	for _, post := range response.Posts {
-		go func(post *types.SocialMediaFromKeywordPostResponse) {
-			defer wg.Done()
-			summarised, err := summarisedPost(post, response.Platform, llmClient)
-			if err != nil {
-				log.Println("Error summarising post:", err)
-				return
-			}
-
-			ch <- *summarised
-		}(&post)
-	}
-
-	wg.Wait()
-	close(ch)
-
-	summarisedPosts := []types.SummarisedPost{}
-	for summarisedPost := range ch {
-		summarisedPosts = append(summarisedPosts, summarisedPost)
-	}
-
 	return &types.PlatformResearchReport{
-		Platform:        response.Platform,
-		SummarisedPosts: summarisedPosts,
-	}, nil
-}
-
-func summarisedPost(post *types.SocialMediaFromKeywordPostResponse, platform string, llmClient *LLMClient) (*types.SummarisedPost, error) {
-	prompt, err := prompts.SummarisePostPrompt(platform)
-	if err != nil {
-		return nil, err
-	}
-
-	completion, err := llmClient.LlamaSummarise(prompt+post.Content, 200)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.SummarisedPost{
-		Content:  completion,
-		Url:      post.Url,
-		Hashtags: post.Hashtags,
+		Platform: response.Platform,
+		Posts:    response.Posts,
 	}, nil
 }
