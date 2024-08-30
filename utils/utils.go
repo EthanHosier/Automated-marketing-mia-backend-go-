@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 	"unicode"
 
 	"github.com/ethanhosier/mia-backend-go/types"
@@ -117,141 +115,6 @@ func PageTextContents(url string) (string, error) {
 	}
 
 	return response.Content, nil
-}
-
-func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTemplate types.PopulatedTemplate) error {
-	populatedTemplateFieldMap := map[string]string{}
-
-	for _, field := range populatedTemplate.Fields {
-		populatedTemplateFieldMap[field.Name] = field.Value
-	}
-
-	inputData := map[string]map[string]string{}
-
-	for _, field := range nearestTemplate.Fields {
-		if field.Type != "text" {
-			continue
-		}
-
-		inputData[field.Name] = map[string]string{
-			"type": "text",
-			"text": populatedTemplateFieldMap[field.Name],
-		}
-	}
-
-	requestData := map[string]interface{}{
-		"brand_template_id": nearestTemplate.ID,
-		"data":              inputData,
-	}
-
-	accessToken, err := AccessToken()
-	if err != nil {
-		return err
-	}
-
-	url := "https://api.canva.com/rest/v1/autofills"
-	jsonData, err := json.Marshal(requestData)
-	if err != nil {
-		return fmt.Errorf("Error marshalling request data:", err)
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("error creating request: %v", err)
-
-	}
-
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("error sending request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Received non-OK response: %s\n", resp.Status)
-	}
-
-	var responseBody types.UpdateTemplateResponse
-	if err := json.NewDecoder(resp.Body).Decode(&responseBody); err != nil {
-		return fmt.Errorf("Error decoding response body:", err)
-	}
-
-	type JobStatus struct {
-		Job struct {
-			ID     string `json:"id"`
-			Result struct {
-				Type   string `json:"type"`
-				Design struct {
-					CreatedAt int64  `json:"created_at"` // Use int64 for Unix timestamp
-					ID        string `json:"id"`
-					Title     string `json:"title"`
-					UpdatedAt int64  `json:"updated_at"` // Use int64 for Unix timestamp
-					Thumbnail struct {
-						URL string `json:"url"`
-					} `json:"thumbnail"`
-					URL  string `json:"url"`
-					URLs struct {
-						EditURL string `json:"edit_url"`
-						ViewURL string `json:"view_url"`
-					} `json:"urls"`
-				} `json:"design"`
-			} `json:"result"`
-			Status string `json:"status"`
-		} `json:"job"`
-	}
-
-	var jobStatusResponse JobStatus
-	for jobStatusResponse.Job.Status != "success" {
-		fmt.Println("Checking job status...")
-		time.Sleep(2 * time.Second) // Wait for 2 seconds before checking status
-
-		statusURL := fmt.Sprintf("https://api.canva.com/rest/v1/autofills/%s", responseBody.Job.ID)
-		req, err := http.NewRequest("GET", statusURL, nil)
-		if err != nil {
-			return fmt.Errorf("error creating request: %v", err)
-
-		}
-
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-		resp, err := client.Do(req)
-		if err != nil {
-			return fmt.Errorf("error sending request: %vs", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("received non-OK response: %s\n", resp.Status)
-		}
-
-		if err := json.NewDecoder(resp.Body).Decode(&jobStatusResponse); err != nil {
-			return fmt.Errorf("error decoding response body: %v", err)
-
-		}
-		fmt.Printf("Job status: %+v\n", jobStatusResponse)
-	}
-	fmt.Printf("Job status: %+v\n", jobStatusResponse)
-
-	fmt.Printf("Response: %+v\n", responseBody)
-	return nil
-}
-
-func IsValidImageURL(url string) bool {
-	if !strings.HasPrefix(url, "http") {
-		return false
-	}
-
-	// Common image file extensions
-	validExtensions := []string{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
-	for _, ext := range validExtensions {
-		if strings.HasSuffix(strings.ToLower(url), ext) {
-			return true
-		}
-	}
-	return false
 }
 
 func CleanText(text string) string {
