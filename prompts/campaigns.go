@@ -175,6 +175,7 @@ Respond with a json object of the following form.
 	fields: []{ // list of fields, matching the fields in the template provided
 		name: string // the name of the text or image field which has been provided to you
 		value: string // the text or image description which you have generated for this field
+		type: "image" | "text" // the type of the field, either image or text
 	}
 	caption: string // the caption for the post
 }
@@ -253,6 +254,6 @@ func TemplatePrompt(platform string, businessSummary types.StoredBusinessSummary
 	return fmt.Sprintf(templatePopulation, platform, businessSummary, theme, primaryKeyword, secondaryKeyword, platform, primaryKeyword, url, scrapedPageData, primaryKeyword, relevantPlatformResearchReportData, fields)
 }
 
-func PickBestImagePrompt(campaignDetails string, imageField types.TemplateFields) string {
+func PickBestImagePrompt(campaignDetails string, imageField types.PopulatedField) string {
 	return fmt.Sprintf(pickBestImagePrompt, campaignDetails, imageField)
 }

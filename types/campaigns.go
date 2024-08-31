@@ -94,9 +94,17 @@ type ResearchReportData struct {
 	PlatformResearchReports []PlatformResearchReport `json:"platformResearchReports"`
 }
 
+type FieldType string
+
+const (
+	TextType  FieldType = "text"
+	ImageType FieldType = "image"
+)
+
 type PopulatedField struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
+	Name  string    `json:"name"`
+	Value string    `json:"value"`
+	Type  FieldType `json:"type"`
 }
 
 type PopulatedTemplate struct {

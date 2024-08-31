@@ -161,7 +161,8 @@ func StartCanvaTokenRefresher(interval time.Duration) {
 	}
 }
 
-func PickBestImages(candidateImages []string, campaignInfo string, imageFields []types.TemplateFields, llmClient *LLMClient) ([]string, error) {
+// TODO: MAKE THIS TAKE INTO CONSIDERATION THE PROMPT OF THE IMAGE FIELD BEFORE POPULATING (types.TemplateField.description)
+func PickBestImages(candidateImages []string, campaignInfo string, imageFields []*types.PopulatedField, llmClient *LLMClient) ([]string, error) {
 	bestImagesWg := sync.WaitGroup{}
 
 	if len(candidateImages) > 50 {
@@ -181,7 +182,7 @@ func PickBestImages(candidateImages []string, campaignInfo string, imageFields [
 	bestImagesWg.Add(len(imageFields))
 
 	for i, field := range imageFields {
-		prompt := prompts.PickBestImagePrompt(campaignInfo, field)
+		prompt := prompts.PickBestImagePrompt(campaignInfo, *field)
 		go func(prompt string, i int) {
 			defer bestImagesWg.Done()
 
@@ -221,15 +222,21 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 	inputData := map[string]map[string]string{}
 
 	for _, field := range nearestTemplate.Fields {
-		if field.Type != "text" {
-			continue
-		}
 
-		inputData[field.Name] = map[string]string{
-			"type": "text",
-			"text": populatedTemplateFieldMap[field.Name],
+		if field.Type == "image" {
+			inputData[field.Name] = map[string]string{
+				"type":     "image",
+				"asset_id": populatedTemplateFieldMap[field.Name],
+			}
+		} else {
+			inputData[field.Name] = map[string]string{
+				"type": "text",
+				"text": populatedTemplateFieldMap[field.Name],
+			}
 		}
 	}
+
+	fmt.Printf("Input data: %+v\n", inputData)
 
 	requestData := map[string]interface{}{
 		"brand_template_id": nearestTemplate.ID,

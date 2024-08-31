@@ -140,6 +140,12 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 		return "", fmt.Errorf("error summarising page body: %w", err)
 	}
 
+	// TODO: MAKE THIS CONCURRENT W OTHER STUFF
+	pageContents, err := utils.PageContentsScrape(url)
+	if err != nil {
+		return "", fmt.Errorf("error scraping page contents: %w", err)
+	}
+
 	templatePrompt := prompts.TemplatePrompt("instagram", businessSummary, theme.Theme, primaryKeyword, secondaryKeyword, url, summarisedPageBody, researchReportData, template.Fields)
 
 	fmt.Println("template prompt: ", templatePrompt)
@@ -155,7 +161,36 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 	err = json.Unmarshal([]byte(extractedTemplate), &populatedTemplate)
 
 	if err != nil {
-		return "", fmt.Errorf("error unmarshalling populated template: %w. Extracted template was %+v", err, populatedTemplate)
+		return "", fmt.Errorf("error unmarshalling populated template: %w.\n Template completion was %+v\n Extracted template was %+v", err, templateCompletion, extractedTemplate)
+	}
+
+	imageFields := []*types.PopulatedField{}
+
+	for i := range populatedTemplate.Fields {
+		if populatedTemplate.Fields[i].Type == types.ImageType {
+			imageFields = append(imageFields, &populatedTemplate.Fields[i])
+		}
+	}
+
+	campaignDetailsStr := fmt.Sprintf("Primary keyword: %v\nSecondary keyword: %v\nURL: %v\nTheme: %v\nTemplate Description: %v", primaryKeyword, secondaryKeyword, url, theme.Theme, theme.ImageCanvaTemplateDescription)
+
+	bestImages, err := utils.PickBestImages(pageContents.ImageUrls, campaignDetailsStr, imageFields, llmClient)
+	if err != nil {
+		return "", fmt.Errorf("error picking best images: %w", err)
+	}
+
+	for i, field := range imageFields {
+		img, err := utils.DownloadImage(bestImages[i])
+		if err != nil {
+			return "", fmt.Errorf("error downloading image: %w", err)
+		}
+
+		resp, err := utils.UploadAsset(img, "name")
+		if err != nil {
+			return "", fmt.Errorf("error uploading image: %w", err)
+		}
+
+		field.Value = resp.Job.ID
 	}
 
 	fmt.Printf("populated template: %+v", populatedTemplate)
