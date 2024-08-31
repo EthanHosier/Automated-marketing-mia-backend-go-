@@ -61,6 +61,14 @@ func BusinessSummaries2(store storage.Storage, llmClient *utils.LLMClient) http.
 			}
 		}()
 
+		colors, err := utils.ColorsFromUrl(req.Url, llmClient)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Println("Colors:", colors)
+
 		sortedUrls, err := utils.SortURLsByProximity(uniqueUrls)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -90,6 +98,8 @@ func BusinessSummaries2(store storage.Storage, llmClient *utils.LLMClient) http.
 			return
 		}
 
+		businessSummaries.Colors = colors
+
 		businessSummaryResponse := types.BusinessSummariesResponse{
 			BusinessSummaries: types.BusinessSummary{
 				BusinessName:    businessSummaries.BusinessName,
@@ -97,6 +107,7 @@ func BusinessSummaries2(store storage.Storage, llmClient *utils.LLMClient) http.
 				BrandVoice:      businessSummaries.BrandVoice,
 				TargetRegion:    businessSummaries.TargetRegion,
 				TargetAudience:  businessSummaries.TargetAudience,
+				Colors:          businessSummaries.Colors,
 			},
 			ImageUrls: imageUrls,
 		}

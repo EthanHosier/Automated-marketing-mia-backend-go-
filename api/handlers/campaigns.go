@@ -135,18 +135,13 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 		return "", fmt.Errorf("error getting page text contents: %w", err)
 	}
 
-	summarisedPageBody, err := llmClient.OpenaiCompletion(prompts.BacklinkUrlPageSummary+scrapedPageBody, openai.GPT4oMini)
-	if err != nil {
-		return "", fmt.Errorf("error summarising page body: %w", err)
-	}
-
 	// TODO: MAKE THIS CONCURRENT W OTHER STUFF
 	pageContents, err := utils.PageContentsScrape(url)
 	if err != nil {
 		return "", fmt.Errorf("error scraping page contents: %w", err)
 	}
 
-	templatePrompt := prompts.TemplatePrompt("instagram", businessSummary, theme.Theme, primaryKeyword, secondaryKeyword, url, summarisedPageBody, researchReportData, template.Fields)
+	templatePrompt := prompts.TemplatePrompt("instagram", businessSummary, theme.Theme, primaryKeyword, secondaryKeyword, url, scrapedPageBody, researchReportData, template.Fields, template.ColorFields)
 
 	fmt.Println("template prompt: ", templatePrompt)
 
@@ -193,6 +188,25 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 		field.Value = resp.Job.ID
 	}
 
+	colorFields := []*types.PopulatedColorField{}
+	for i := range populatedTemplate.ColorFields {
+		colorFields = append(colorFields, &populatedTemplate.ColorFields[i])
+	}
+
+	for _, field := range colorFields {
+		colorImg, err := utils.CreateColorImage(field.Color)
+		if err != nil {
+			return "", fmt.Errorf("error creating color image: %w", err)
+		}
+
+		resp, err := utils.UploadAsset(colorImg, "name")
+		if err != nil {
+			return "", fmt.Errorf("error uploading color image: %w", err)
+		}
+
+		field.Color = resp.Job.ID
+	}
+
 	fmt.Printf("populated template: %+v", populatedTemplate)
 
 	err = utils.PopulateTemplate(*template, populatedTemplate)
@@ -230,12 +244,13 @@ func campaignChosenKewords(keywords []string) (string, string, error) {
 }
 
 func chosenTemplate(templateDescription string, llmClient *utils.LLMClient, store storage.Storage) (*types.NearestTemplateResponse, error) {
-	embedding, err := llmClient.OpenaiEmbedding(templateDescription)
-	if err != nil {
-		return nil, fmt.Errorf("error getting embedding for optimal keyword: %w", err)
-	}
+	// embedding, err := llmClient.OpenaiEmbedding(templateDescription)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("error getting embedding for optimal keyword: %w", err)
+	// }
 
-	template, err := store.GetNearestTemplate(embedding)
+	// template, err := store.GetNearestTemplate(embedding)
+	template, err := store.GetRandomTemplate()
 	if err != nil {
 		return nil, fmt.Errorf("error getting nearest template: %w", err)
 	}

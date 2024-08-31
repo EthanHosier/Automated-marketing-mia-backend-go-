@@ -2,7 +2,6 @@ package utils
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -14,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ethanhosier/mia-backend-go/prompts"
 	"github.com/ethanhosier/mia-backend-go/types"
 	"github.com/sashabaranov/go-openai"
 )
@@ -219,7 +219,7 @@ func platformResearchReport(keyword string, platform string) (*types.PlatformRes
 	}, nil
 }
 
-func createColorImage(hexColor string) ([]byte, error) {
+func CreateColorImage(hexColor string) ([]byte, error) {
 	c, err := HexToColor(hexColor)
 	if err != nil {
 		return nil, err
@@ -241,17 +241,22 @@ func createColorImage(hexColor string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func GetBase64ColorImageURL(hexColor string) (string, error) {
-	imageData, err := createColorImage(hexColor)
+func ColorsFromUrl(url string, llmClient *LLMClient) ([]string, error) {
+	screenshotBase64, err := PageScreenshot(url)
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("error taking screenshot of page: %v", err)
 	}
 
-	// Encode the image data to a base64 string.
-	base64Image := base64.StdEncoding.EncodeToString(imageData)
+	resp, err := llmClient.OpenaiImageCompletion(prompts.ColorThemesPrompt, []string{screenshotBase64}, openai.GPT4o)
+	if err != nil {
+		return nil, err
+	}
 
-	// Format as a data URL.
-	dataURL := fmt.Sprintf("data:image/png;base64,%s", base64Image)
+	var colors []string
+	err = json.Unmarshal([]byte(resp), &colors)
+	if err != nil {
+		return nil, err
+	}
 
-	return dataURL, nil
+	return colors, nil
 }

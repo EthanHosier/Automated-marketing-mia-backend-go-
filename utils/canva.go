@@ -236,7 +236,14 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 		}
 	}
 
-	fmt.Printf("Input data: %+v\n", inputData)
+	for _, colorField := range populatedTemplate.ColorFields {
+		inputData[colorField.Name] = map[string]string{
+			"type":     "image",
+			"asset_id": colorField.Color,
+		}
+	}
+
+	fmt.Printf("input data: %+v\n", inputData)
 
 	requestData := map[string]interface{}{
 		"brand_template_id": nearestTemplate.ID,

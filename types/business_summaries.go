@@ -12,23 +12,26 @@ type BusinessSummariesRequest struct {
 type BusinessSummariesResponse struct {
 	BusinessSummaries BusinessSummary `json:"businessSummaries"`
 	ImageUrls         []string        `json:"imageUrls"`
+	Colors            string          `json:"colors"`
 }
 
 type BusinessSummary struct {
-	BusinessName    string `json:"businessName"`
-	BusinessSummary string `json:"businessSummary"`
-	BrandVoice      string `json:"brandVoice"`
-	TargetRegion    string `json:"targetRegion"`
-	TargetAudience  string `json:"targetAudience"`
+	BusinessName    string   `json:"businessName"`
+	BusinessSummary string   `json:"businessSummary"`
+	BrandVoice      string   `json:"brandVoice"`
+	TargetRegion    string   `json:"targetRegion"`
+	TargetAudience  string   `json:"targetAudience"`
+	Colors          []string `json:"colors"`
 }
 
 type StoredBusinessSummary struct {
-	ID              string `json:"id"`
-	BusinessName    string `json:"businessName"`
-	BusinessSummary string `json:"businessSummary"`
-	BrandVoice      string `json:"brandVoice"`
-	TargetRegion    string `json:"targetRegion"`
-	TargetAudience  string `json:"targetAudience"`
+	ID              string   `json:"id"`
+	BusinessName    string   `json:"businessName"`
+	BusinessSummary string   `json:"businessSummary"`
+	BrandVoice      string   `json:"brandVoice"`
+	TargetRegion    string   `json:"targetRegion"`
+	TargetAudience  string   `json:"targetAudience"`
+	Colors          []string `json:"colors"`
 }
 
 type StoredSitemapUrl struct {

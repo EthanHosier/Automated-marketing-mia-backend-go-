@@ -166,16 +166,26 @@ This is the content of the given URL. Incorporate any content as you see fit fro
 Here is some futher scraped information about the keyword "%s" which has been researched online:
 %+v
 
-These are the fields which are required to be filled in for the post image, which will be populated in Canva. Use the comment of each field to determine what the value of the field should be. Pay close attention to what page each field is on, relative to one another. For any image fields, instead of giving the image, give a text description of the image, which will be used to generate the image using AI.:
+These are the fields which are required to be filled in for the post image, which will be populated in Canva. Use the comment of each field to determine what the value of the field should be. Make sure that the characters used is less than maxCharacters limit (if it's specified). Pay close attention to what page each field is on, relative to one another. For any image fields, instead of giving the image, give a text description of the image, which will be used to generate the image using AI.:
+%+v
+
+Here are the color fields which are required. 
+%+v
+
+Match each color field to one of these colors from the business color theme:
 %+v
 
 Respond with a json object of the following form.
 
 {
-	fields: []{ // list of fields, matching the fields in the template provided
+	fields: []{ // list of text or image fields, matching the fields in the template provided
 		name: string // the name of the text or image field which has been provided to you
 		value: string // the text or image description which you have generated for this field
 		type: "image" | "text" // the type of the field, either image or text
+	}
+	colors: []{ // list of color fields, matching the color fields in the template provided
+		name: string // the name of the color field which has been provided to you. E.g bgmedium
+		color: string // the color which you have matched to this field.
 	}
 	caption: string // the caption for the post
 }
@@ -242,7 +252,7 @@ func ResearchReportPrompt(keyword string, researchReportData types.ResearchRepor
 	return fmt.Sprintf(researchReport2, keyword, researchReportData)
 }
 
-func TemplatePrompt(platform string, businessSummary types.StoredBusinessSummary, theme string, primaryKeyword string, secondaryKeyword string, url string, scrapedPageData string, researchReport types.ResearchReportData, fields []types.TemplateFields) string {
+func TemplatePrompt(platform string, businessSummary types.StoredBusinessSummary, theme string, primaryKeyword string, secondaryKeyword string, url string, scrapedPageData string, researchReport types.ResearchReportData, fields []types.TemplateFields, colorFields []types.ColorField) string {
 
 	relevantPlatformResearchReportData := []types.PlatformResearchReport{}
 	for _, platformResearchReport := range researchReport.PlatformResearchReports {
@@ -251,7 +261,7 @@ func TemplatePrompt(platform string, businessSummary types.StoredBusinessSummary
 		}
 	}
 
-	return fmt.Sprintf(templatePopulation, platform, businessSummary, theme, primaryKeyword, secondaryKeyword, platform, primaryKeyword, url, scrapedPageData, primaryKeyword, relevantPlatformResearchReportData, fields)
+	return fmt.Sprintf(templatePopulation, platform, businessSummary, theme, primaryKeyword, secondaryKeyword, platform, primaryKeyword, url, scrapedPageData, primaryKeyword, relevantPlatformResearchReportData, fields, colorFields, businessSummary.Colors)
 }
 
 func PickBestImagePrompt(campaignDetails string, imageField types.PopulatedField) string {

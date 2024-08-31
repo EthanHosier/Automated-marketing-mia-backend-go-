@@ -50,11 +50,18 @@ type SearchResultsResponse struct {
 }
 
 type TemplateFields struct {
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	Label         string `json:"label"`
+	Comment       string `json:"comment"`
+	Page          string `json:"page"`
+	MaxCharacters int    `json:"maxCharacters"`
+}
+
+type ColorField struct {
 	Name    string `json:"name"`
-	Type    string `json:"type"`
 	Label   string `json:"label"`
 	Comment string `json:"comment"`
-	Page    string `json:"page"`
 }
 
 type NearestTemplateResponse struct {
@@ -62,9 +69,9 @@ type NearestTemplateResponse struct {
 	Title       string           `json:"title"`
 	Platforms   []string         `json:"platforms"`
 	ExportType  string           `json:"export_type"`
-	Colors      []string         `json:"colors"`
 	Description string           `json:"description"`
 	Fields      []TemplateFields `json:"fields"`
+	ColorFields []ColorField     `json:"colors"`
 	Similarity  float32          `json:"similarity"`
 }
 
@@ -107,7 +114,13 @@ type PopulatedField struct {
 	Type  FieldType `json:"type"`
 }
 
+type PopulatedColorField struct {
+	Name  string `json:"name"`
+	Color string `json:"color"`
+}
+
 type PopulatedTemplate struct {
-	Fields  []PopulatedField `json:"fields"`
-	Caption string           `json:"caption"`
+	Fields      []PopulatedField      `json:"fields"`
+	ColorFields []PopulatedColorField `json:"colors"`
+	Caption     string                `json:"caption"`
 }

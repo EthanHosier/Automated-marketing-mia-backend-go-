@@ -3,11 +3,14 @@ package storage
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/ethanhosier/mia-backend-go/types"
 	"github.com/ethanhosier/mia-backend-go/utils"
@@ -32,6 +35,7 @@ func (s *SupabaseStorage) StoreBusinessSummary(userId string, businessSummary ty
 		BrandVoice:      businessSummary.BrandVoice,
 		TargetRegion:    businessSummary.TargetRegion,
 		TargetAudience:  businessSummary.TargetAudience,
+		Colors:          businessSummary.Colors,
 	}
 
 	var results []types.StoredBusinessSummary
@@ -71,6 +75,28 @@ func (s *SupabaseStorage) GetSitemap(userId string) ([]types.StoredSitemapUrl, e
 	err := s.client.DB.From("sitemaps").Select("*").Eq("id", userId).Execute(&results)
 
 	return results, err
+}
+
+func (s *SupabaseStorage) GetRandomTemplate() (*types.NearestTemplateResponse, error) {
+	var allTemplates []types.NearestTemplateResponse
+	err := s.client.DB.From("canva_templates").Select("*").Execute(&allTemplates)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if there are any templates available
+	if len(allTemplates) == 0 {
+		return nil, errors.New("no templates found")
+	}
+
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+
+	// Pick a random template
+	randomIndex := rand.Intn(len(allTemplates))
+	randomTemplate := allTemplates[randomIndex]
+
+	return &randomTemplate, nil
 }
 
 func (s *SupabaseStorage) GetNearestTemplate(vector types.Vector) (*types.NearestTemplateResponse, error) {

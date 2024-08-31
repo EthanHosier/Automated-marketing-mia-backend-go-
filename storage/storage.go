@@ -10,4 +10,5 @@ type Storage interface {
 	GetNearestTemplate(types.Vector) (*types.NearestTemplateResponse, error)
 	GetNearestUrl(types.Vector) (string, error)
 	GetRandomUrls(string, int) ([]string, error)
+	GetRandomTemplate() (*types.NearestTemplateResponse, error)
 }

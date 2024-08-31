@@ -27,18 +27,25 @@ func Round2Dec(val float64) float64 {
 }
 
 func ExtractJsonObj(jsonString string, b BracketType) string {
+	// Remove all newline characters from the input string
+	jsonString = strings.ReplaceAll(jsonString, "\n", "")
+
+	// Get the opening and closing brackets for the specific type
 	open, close := getBrackets(b)
 
+	// Find the start index of the opening bracket
 	start := strings.Index(jsonString, open)
 	if start == -1 {
 		return ""
 	}
 
+	// Find the last index of the closing bracket
 	end := strings.LastIndex(jsonString, close)
 	if end == -1 || end <= start {
 		return ""
 	}
 
+	// Return the substring containing the JSON object
 	return jsonString[start : end+1]
 }
 
