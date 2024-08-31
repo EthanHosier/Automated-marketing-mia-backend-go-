@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -57,7 +56,7 @@ func BusinessSummaries2(store storage.Storage, llmClient *utils.LLMClient) http.
 			err := saveSitemap(userID, uniqueUrls, llmClient, store)
 
 			if err != nil {
-				fmt.Println("Error saving sitemap:", err)
+				log.Println("Error saving sitemap:", err)
 			}
 		}()
 
@@ -67,8 +66,6 @@ func BusinessSummaries2(store storage.Storage, llmClient *utils.LLMClient) http.
 			return
 		}
 
-		fmt.Println("Colors:", colors)
-
 		sortedUrls, err := utils.SortURLsByProximity(uniqueUrls)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -76,10 +73,6 @@ func BusinessSummaries2(store storage.Storage, llmClient *utils.LLMClient) http.
 		}
 
 		imageUrls, bodyTexts, err := scrapeWebsitePages(sortedUrls[:min(maxBusinessSummaryUrls, len(sortedUrls))])
-
-		for _, text := range bodyTexts {
-			fmt.Println(text)
-		}
 
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -134,7 +127,7 @@ func scrapeWebsitePages(urls []string) ([]string, []string, error) {
 
 			pageContents, err := utils.PageContentsScrape(url)
 			if err != nil {
-				fmt.Println("Error scraping page contents:", err)
+				log.Println("Error scraping page contents:", err)
 				return
 			}
 			pageCh <- *pageContents
@@ -194,7 +187,7 @@ func BusinessSummaries(store storage.Storage, llmClient *utils.LLMClient) http.H
 			err := scrapeSitemap(req, userID, llmClient, store)
 
 			if err != nil {
-				fmt.Println("Error scraping sitemap:", err)
+				log.Println("Error scraping sitemap:", err)
 			}
 		}()
 

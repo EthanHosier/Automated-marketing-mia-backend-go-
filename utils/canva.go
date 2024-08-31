@@ -155,14 +155,12 @@ func StartCanvaTokenRefresher(interval time.Duration) {
 		_, err := refreshAccessToken()
 		if err != nil {
 			log.Printf("Error refreshing token: %v", err)
-		} else {
-			log.Println("Token refreshed successfully")
 		}
 	}
 }
 
 // TODO: MAKE THIS TAKE INTO CONSIDERATION THE PROMPT OF THE IMAGE FIELD BEFORE POPULATING (types.TemplateField.description)
-func PickBestImages(candidateImages []string, campaignInfo string, imageFields []*types.PopulatedField, llmClient *LLMClient) ([]string, error) {
+func PickBestImages(candidateImages []string, campaignInfo string, imageFields []types.PopulatedField, llmClient *LLMClient) ([]string, error) {
 	bestImagesWg := sync.WaitGroup{}
 
 	if len(candidateImages) > 50 {
@@ -182,7 +180,7 @@ func PickBestImages(candidateImages []string, campaignInfo string, imageFields [
 	bestImagesWg.Add(len(imageFields))
 
 	for i, field := range imageFields {
-		prompt := prompts.PickBestImagePrompt(campaignInfo, *field)
+		prompt := prompts.PickBestImagePrompt(campaignInfo, field)
 		go func(prompt string, i int) {
 			defer bestImagesWg.Done()
 
@@ -212,41 +210,34 @@ func PickBestImages(candidateImages []string, campaignInfo string, imageFields [
 	return bestImages, nil
 }
 
-func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTemplate types.PopulatedTemplate) error {
-	populatedTemplateFieldMap := map[string]string{}
-
-	for _, field := range populatedTemplate.Fields {
-		populatedTemplateFieldMap[field.Name] = field.Value
-	}
-
+func PopulateTemplate(ID string, imageFields []types.PopulatedField, textFields []types.PopulatedField, colorFields []types.PopulatedColorField) error {
 	inputData := map[string]map[string]string{}
 
-	for _, field := range nearestTemplate.Fields {
-
-		if field.Type == "image" {
-			inputData[field.Name] = map[string]string{
-				"type":     "image",
-				"asset_id": populatedTemplateFieldMap[field.Name],
-			}
-		} else {
-			inputData[field.Name] = map[string]string{
-				"type": "text",
-				"text": populatedTemplateFieldMap[field.Name],
-			}
-		}
-	}
-
-	for _, colorField := range populatedTemplate.ColorFields {
-		inputData[colorField.Name] = map[string]string{
+	for _, field := range imageFields {
+		inputData[field.Name] = map[string]string{
 			"type":     "image",
-			"asset_id": colorField.Color,
+			"asset_id": field.Value,
 		}
 	}
 
-	fmt.Printf("input data: %+v\n", inputData)
+	for _, field := range textFields {
+		inputData[field.Name] = map[string]string{
+			"type": "text",
+			"text": field.Value,
+		}
+	}
+
+	for _, field := range colorFields {
+		inputData[field.Name] = map[string]string{
+			"type":     "image",
+			"asset_id": field.Color,
+		}
+	}
+
+	log.Printf("Input data: %+v\n", inputData)
 
 	requestData := map[string]interface{}{
-		"brand_template_id": nearestTemplate.ID,
+		"brand_template_id": ID,
 		"data":              inputData,
 	}
 
@@ -258,7 +249,7 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 	url := "https://api.canva.com/rest/v1/autofills"
 	jsonData, err := json.Marshal(requestData)
 	if err != nil {
-		return fmt.Errorf("Error marshalling request data:", err)
+		return fmt.Errorf("error marshalling request data:", err)
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
@@ -288,7 +279,6 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 
 	var jobStatusResponse types.UpdateTemplateJobStatus
 	for jobStatusResponse.Job.Status != "success" && jobStatusResponse.Job.Status != "failed" {
-		fmt.Println("Checking job status...")
 		time.Sleep(2 * time.Second) // Wait for 2 seconds before checking status
 
 		statusURL := fmt.Sprintf("https://api.canva.com/rest/v1/autofills/%s", responseBody.Job.ID)
@@ -311,18 +301,16 @@ func PopulateTemplate(nearestTemplate types.NearestTemplateResponse, populatedTe
 
 		if err := json.NewDecoder(resp.Body).Decode(&jobStatusResponse); err != nil {
 			return fmt.Errorf("error decoding response body: %v", err)
-
 		}
-		fmt.Printf("Job status: %+v\n", jobStatusResponse)
+
+		log.Println("Template update status:", jobStatusResponse.Job.Status)
 	}
 
 	if jobStatusResponse.Job.Status == "failed" {
 		return fmt.Errorf("job failed")
 	}
 
-	fmt.Printf("Job status: %+v\n", jobStatusResponse)
-
-	fmt.Printf("Response: %+v\n", responseBody)
+	log.Printf("Response: %+v\n", jobStatusResponse.Job.Result)
 	return nil
 }
 
@@ -387,7 +375,6 @@ func UploadAsset(asset []byte, name string) (*types.UploadAssetResponse, error) 
 	}
 
 	for uploadAssetResponse.Job.Status != "success" && uploadAssetResponse.Job.Status != "failed" {
-		fmt.Println("Checking asset upload status...")
 		time.Sleep(2 * time.Second) // Wait for 2 seconds before checking status
 
 		statusURL := fmt.Sprintf("https://api.canva.com/rest/v1/asset-uploads/%s", uploadAssetResponse.Job.ID)
@@ -410,7 +397,7 @@ func UploadAsset(asset []byte, name string) (*types.UploadAssetResponse, error) 
 		if err := json.NewDecoder(resp.Body).Decode(&uploadAssetResponse); err != nil {
 			return nil, fmt.Errorf("error decoding response body: %v", err)
 		}
-		fmt.Printf("Asset upload status: %+v\n", uploadAssetResponse)
+		log.Println("Asset upload status:", uploadAssetResponse.Job.Status)
 	}
 
 	if uploadAssetResponse.Job.Status == "failed" {

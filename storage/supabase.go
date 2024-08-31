@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"math/rand"
@@ -194,8 +193,6 @@ func (s *SupabaseStorage) GetNearestUrl(vector types.Vector) (string, error) {
 		log.Println("Error reading response body:", err)
 		return "", err
 	}
-
-	fmt.Println(string(body))
 
 	type NearestUrlResponse struct {
 		Url        string  `json:"url"`

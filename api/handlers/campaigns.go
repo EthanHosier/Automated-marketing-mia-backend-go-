@@ -32,7 +32,7 @@ func GenerateCampaigns(store storage.Storage, llmClient *utils.LLMClient) http.H
 			var err error
 			pageContents, err = candidatePages(userID, store)
 			if err != nil {
-				fmt.Println("Error getting candidate pages:", err)
+				log.Println("Error getting candidate pages:", err)
 			}
 		}()
 
@@ -56,7 +56,6 @@ func GenerateCampaigns(store storage.Storage, llmClient *utils.LLMClient) http.H
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fmt.Println(themes)
 
 		campaign, err := campaignFromTheme(themes[0], businessSummary, llmClient, store)
 		if err != nil {
@@ -175,11 +174,18 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 		return "", fmt.Errorf("error unmarshalling populated template: %w.\n Template completion was %+v\n Extracted template was %+v", err, templateCompletion, extractedTemplate)
 	}
 
-	imageFields := []*types.PopulatedField{}
+	imageFields := []types.PopulatedField{}
+	textFields := []types.PopulatedField{}
 
 	for i := range populatedTemplate.Fields {
 		if populatedTemplate.Fields[i].Type == types.ImageType {
-			imageFields = append(imageFields, &populatedTemplate.Fields[i])
+			imageFields = append(imageFields, populatedTemplate.Fields[i])
+			continue
+		}
+
+		if populatedTemplate.Fields[i].Type == types.TextType {
+			textFields = append(textFields, populatedTemplate.Fields[i])
+			continue
 		}
 	}
 
@@ -191,47 +197,97 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 		return "", fmt.Errorf("error picking best images: %w", err)
 	}
 
-	for i, field := range imageFields {
-		img, err := utils.DownloadImage(bestImages[i])
-		if err != nil {
-			return "", fmt.Errorf("error downloading image: %w", err)
-		}
-
-		resp, err := utils.UploadAsset(img, "name")
-		if err != nil {
-			return "", fmt.Errorf("error uploading image: %w", err)
-		}
-
-		field.Value = resp.Job.ID
+	imageFields, err = uploadImageAssets(imageFields, bestImages)
+	if err != nil {
+		return "", fmt.Errorf("error uploading image assets: %w", err)
 	}
 
-	colorFields := []*types.PopulatedColorField{}
-	for i := range populatedTemplate.ColorFields {
-		colorFields = append(colorFields, &populatedTemplate.ColorFields[i])
+	colorFields, err := uploadColorAssets(populatedTemplate.ColorFields)
+	if err != nil {
+		return "", fmt.Errorf("error uploading color assets: %w", err)
 	}
 
-	for _, field := range colorFields {
-		colorImg, err := utils.CreateColorImage(field.Color)
-		if err != nil {
-			return "", fmt.Errorf("error creating color image: %w", err)
-		}
+	log.Printf("Populated template: %+v\n", populatedTemplate)
 
-		resp, err := utils.UploadAsset(colorImg, "name")
-		if err != nil {
-			return "", fmt.Errorf("error uploading color image: %w", err)
-		}
-
-		field.Color = resp.Job.ID
-	}
-
-	fmt.Printf("populated template: %+v", populatedTemplate)
-
-	err = utils.PopulateTemplate(*template, populatedTemplate)
+	err = utils.PopulateTemplate(template.ID, imageFields, textFields, colorFields)
 	if err != nil {
 		return "", fmt.Errorf("error populating template: %w", err)
 	}
 
 	return "", nil
+}
+
+func uploadColorAssets(colorFields []types.PopulatedColorField) ([]types.PopulatedColorField, error) {
+	colorFieldCh := make(chan types.PopulatedColorField, len(colorFields))
+	colorFieldWg := sync.WaitGroup{}
+	colorFieldWg.Add(len(colorFields))
+
+	for _, field := range colorFields {
+		go func(field types.PopulatedColorField) {
+			defer colorFieldWg.Done()
+
+			colorImg, err := utils.CreateColorImage(field.Color)
+			if err != nil {
+				log.Println("error creating color image: ", err)
+				return
+			}
+
+			resp, err := utils.UploadAsset(colorImg, "name")
+			if err != nil {
+				log.Println("error uploading color image: ", err)
+				return
+			}
+
+			field.Color = resp.Job.ID
+			colorFieldCh <- field
+		}(field)
+	}
+
+	colorFieldWg.Wait()
+	close(colorFieldCh)
+
+	colorFields = []types.PopulatedColorField{}
+	for field := range colorFieldCh {
+		colorFields = append(colorFields, field)
+	}
+
+	return colorFields, nil
+}
+
+func uploadImageAssets(imageFields []types.PopulatedField, bestImages []string) ([]types.PopulatedField, error) {
+	imageFieldsCh := make(chan types.PopulatedField, len(imageFields))
+	imageFieldsWg := sync.WaitGroup{}
+	imageFieldsWg.Add(len(imageFields))
+
+	for i, field := range imageFields {
+		go func(field types.PopulatedField, i int) {
+			defer imageFieldsWg.Done()
+			img, err := utils.DownloadImage(bestImages[i])
+			if err != nil {
+				log.Println("error downloading image: ", err)
+				return
+			}
+
+			resp, err := utils.UploadAsset(img, "name")
+			if err != nil {
+				log.Println("error uploading image: ", err)
+				return
+			}
+
+			field.Value = resp.Job.ID
+			imageFieldsCh <- field
+		}(field, i)
+	}
+
+	imageFieldsWg.Wait()
+	close(imageFieldsCh)
+
+	imageFields = []types.PopulatedField{}
+	for field := range imageFieldsCh {
+		imageFields = append(imageFields, field)
+	}
+
+	return imageFields, nil
 }
 
 func campaignUrl(urlDescription string, store storage.Storage, llmClient *utils.LLMClient) (string, error) {
@@ -277,7 +333,6 @@ func chosenTemplate(templateDescription string, llmClient *utils.LLMClient, stor
 
 func candidatePages(userID string, store storage.Storage) ([]types.BodyContentsScrapeResponse, error) {
 	randomUrls, err := store.GetRandomUrls(userID, 5)
-	fmt.Println(randomUrls)
 	if err != nil {
 		return nil, fmt.Errorf("error getting random URLs: %w", err)
 	}
@@ -293,7 +348,7 @@ func candidatePages(userID string, store storage.Storage) ([]types.BodyContentsS
 
 			pageContents, err := utils.PageContentsScrape(url)
 			if err != nil {
-				fmt.Println("Error scraping page contents:", err)
+				log.Println("Error scraping page contents:", err)
 				return
 			}
 
