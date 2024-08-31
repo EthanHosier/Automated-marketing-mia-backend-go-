@@ -95,19 +95,47 @@ func generateThemes(pageContents []types.BodyContentsScrapeResponse, businessSum
 
 func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusinessSummary, llmClient *utils.LLMClient, store storage.Storage) (string, error) {
 	log.Printf("Generating campaign from theme \"%v\"\n", theme.Theme)
-
 	url := theme.Url
+
+	// Scrape the text of the given web page
+	scrapedPageBodyCh := make(chan string, 1)
+	go func() {
+		scrapedPageText, err := utils.PageTextContents(url)
+		if err != nil {
+			fmt.Errorf("error getting page text contents: %w", err)
+			scrapedPageBodyCh <- ""
+			return
+		}
+		scrapedPageBodyCh <- scrapedPageText
+	}()
+
+	// Extract the main features of the page (including images)
+	scrapedPageContentsCh := make(chan types.BodyContentsScrapeResponse, 1)
+	go func() {
+		pageContents, err := utils.PageContentsScrape(url)
+		if err != nil {
+			fmt.Errorf("error scraping page contents: %w", err)
+			scrapedPageContentsCh <- types.BodyContentsScrapeResponse{}
+			return
+		}
+		scrapedPageContentsCh <- *pageContents
+	}()
+
+	// Choose the template for the campaign
+	templateCh := make(chan *types.NearestTemplateResponse, 1)
+	go func() {
+		template, err := chosenTemplate(theme.ImageCanvaTemplateDescription, llmClient, store)
+		if err != nil {
+			fmt.Errorf("error getting template for campaign: %w", err)
+			templateCh <- nil
+			return
+		}
+		templateCh <- template
+	}()
 
 	primaryKeyword, secondaryKeyword, err := campaignChosenKewords(theme.Keywords)
 	if err != nil {
 		return "", fmt.Errorf("error getting keywords for campaign: %w", err)
-	}
-
-	fmt.Println("Primary keyword: ", primaryKeyword, "Secondary keyword: ", secondaryKeyword, "URL: ", url)
-
-	template, err := chosenTemplate(theme.ImageCanvaTemplateDescription, llmClient, store)
-	if err != nil {
-		return "", fmt.Errorf("error getting template for campaign: %w", err)
 	}
 
 	researchReportData, err := utils.ResearchReportData(primaryKeyword, llmClient)
@@ -115,46 +143,34 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 		return "", fmt.Errorf("error getting research report data: %w", err)
 	}
 
-	for _, platformResearchReport := range researchReportData.PlatformResearchReports {
-		fmt.Println(platformResearchReport.Platform)
-		for _, post := range platformResearchReport.Posts {
-			fmt.Printf("%+v\n\n", post)
+	// Generate Research Report
+	researchReportCh := make(chan string, 1)
+	go func() {
+		researchReportPrompt := prompts.ResearchReportPrompt(primaryKeyword, researchReportData)
+		researchReport, err := llmClient.OpenaiCompletion(researchReportPrompt, openai.GPT4o)
+		if err != nil {
+			log.Println("error generating research report: %w", err)
+			researchReportCh <- ""
+			return
 		}
-	}
+		researchReportCh <- researchReport
+	}()
 
-	researchReportPrompt := prompts.ResearchReportPrompt(primaryKeyword, researchReportData)
-	researchReport, err := llmClient.OpenaiCompletion(researchReportPrompt, openai.GPT4o)
-	if err != nil {
-		return "", fmt.Errorf("error generating research report: %w", err)
-	}
+	// Gather the template to be used for the campaign
+	template := <-templateCh
+	scrapedPageBody := <-scrapedPageBodyCh
 
-	fmt.Printf("URL: %v\nPrimary Keyword: %v\nSecondary Keyword: %v\nTemplate: %+v\n\n\n\n Reserch report: %v\n", url, primaryKeyword, secondaryKeyword, *template, researchReport)
-
-	scrapedPageBody, err := utils.PageTextContents(url)
-	if err != nil {
-		return "", fmt.Errorf("error getting page text contents: %w", err)
-	}
-
-	// TODO: MAKE THIS CONCURRENT W OTHER STUFF
-	pageContents, err := utils.PageContentsScrape(url)
-	if err != nil {
-		return "", fmt.Errorf("error scraping page contents: %w", err)
-	}
-
-	templatePrompt := prompts.TemplatePrompt("instagram", businessSummary, theme.Theme, primaryKeyword, secondaryKeyword, url, scrapedPageBody, researchReportData, template.Fields, template.ColorFields)
-
-	fmt.Println("template prompt: ", templatePrompt)
+	templatePrompt := prompts.TemplatePrompt("instagram", businessSummary, theme.Theme, primaryKeyword, secondaryKeyword, url, scrapedPageBody,
+		researchReportData, template.Fields, template.ColorFields)
 
 	templateCompletion, err := llmClient.OpenaiCompletion(templatePrompt, openai.GPT4o)
 	if err != nil {
 		return "", fmt.Errorf("error generating template completion: %w", err)
 	}
-
 	extractedTemplate := utils.ExtractJsonObj(templateCompletion, utils.CurlyBracket)
 
 	var populatedTemplate types.PopulatedTemplate
 	err = json.Unmarshal([]byte(extractedTemplate), &populatedTemplate)
-
 	if err != nil {
 		return "", fmt.Errorf("error unmarshalling populated template: %w.\n Template completion was %+v\n Extracted template was %+v", err, templateCompletion, extractedTemplate)
 	}
@@ -169,6 +185,7 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 
 	campaignDetailsStr := fmt.Sprintf("Primary keyword: %v\nSecondary keyword: %v\nURL: %v\nTheme: %v\nTemplate Description: %v", primaryKeyword, secondaryKeyword, url, theme.Theme, theme.ImageCanvaTemplateDescription)
 
+	pageContents := <-scrapedPageContentsCh
 	bestImages, err := utils.PickBestImages(pageContents.ImageUrls, campaignDetailsStr, imageFields, llmClient)
 	if err != nil {
 		return "", fmt.Errorf("error picking best images: %w", err)
