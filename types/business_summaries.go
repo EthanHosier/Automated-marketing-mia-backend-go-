@@ -12,7 +12,6 @@ type BusinessSummariesRequest struct {
 type BusinessSummariesResponse struct {
 	BusinessSummaries BusinessSummary `json:"businessSummaries"`
 	ImageUrls         []string        `json:"imageUrls"`
-	Colors            string          `json:"colors"`
 }
 
 type BusinessSummary struct {

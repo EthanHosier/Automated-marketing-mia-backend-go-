@@ -43,6 +43,23 @@ func (s *SupabaseStorage) StoreBusinessSummary(userId string, businessSummary ty
 	return err
 }
 
+func (s *SupabaseStorage) UpdateBusinessSummary(userId string, updateFields map[string]interface{}) error {
+	var summaryInstance types.StoredBusinessSummary
+	err := utils.ValidateMapKeys(summaryInstance, updateFields)
+	if err != nil {
+		return err
+	}
+
+	var results []types.StoredBusinessSummary
+	err = s.client.DB.From("businessSummaries").Update(updateFields).Eq("id", userId).Execute(&results)
+
+	if err != nil {
+		log.Println("Error updating business summary fields:", err)
+	}
+
+	return err
+}
+
 func (s *SupabaseStorage) StoreSitemap(userId string, urls []string, embeddings []types.Vector) error {
 	uniqueUrls := utils.RemoveDuplicates(urls)
 
@@ -71,7 +88,7 @@ func (s *SupabaseStorage) GetBusinessSummary(userId string) (types.StoredBusines
 
 func (s *SupabaseStorage) GetSitemap(userId string) ([]types.StoredSitemapUrl, error) {
 	var results []types.StoredSitemapUrl
-	err := s.client.DB.From("sitemaps").Select("*").Eq("id", userId).Execute(&results)
+	err := s.client.DB.From("sitemaps").Select("url").Eq("id", userId).Execute(&results)
 
 	return results, err
 }

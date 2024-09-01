@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"unicode"
@@ -221,4 +222,44 @@ func DownloadImage(imageURL string) ([]byte, error) {
 	}
 
 	return imgData, nil
+}
+
+// ValidateMapKeys checks if the keys in the map match the JSON tags of the struct fields.
+func ValidateMapKeys[T any](inputStruct T, inputMap map[string]interface{}) error {
+	// Get the type of the struct
+	structType := reflect.TypeOf(inputStruct)
+
+	// Create a set of valid keys from the struct's JSON tag names
+	validKeys := make(map[string]struct{})
+	for i := 0; i < structType.NumField(); i++ {
+		field := structType.Field(i)
+		jsonTag := field.Tag.Get("json")
+
+		// Handle cases where the json tag is omitted or has specific options like `json:"-"`
+		if jsonTag == "" {
+			jsonTag = field.Name
+		} else if jsonTag == "-" {
+			continue // Skip fields with `json:"-"`
+		} else {
+			// In case the tag contains options, e.g., `json:"name,omitempty"`
+			jsonTag = parseJSONTag(jsonTag)
+		}
+		validKeys[jsonTag] = struct{}{}
+	}
+
+	// Check if all keys in the map are valid JSON field names
+	for key := range inputMap {
+		if _, exists := validKeys[key]; !exists {
+			return fmt.Errorf("invalid key: %s", key)
+		}
+	}
+
+	return nil
+}
+
+func parseJSONTag(tag string) string {
+	if commaIndex := len(tag); commaIndex != -1 {
+		return tag[:commaIndex]
+	}
+	return tag
 }

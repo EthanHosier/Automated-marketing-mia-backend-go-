@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"sync"
@@ -230,15 +231,38 @@ func GetBusinessSummaries(store storage.Storage) http.HandlerFunc {
 
 		resp := types.BusinessSummariesResponse{
 			BusinessSummaries: types.BusinessSummary{
-				BusinessName:    "",
+				BusinessName:    businessSummary.BusinessName,
 				BusinessSummary: businessSummary.BusinessSummary,
 				BrandVoice:      businessSummary.BrandVoice,
 				TargetRegion:    businessSummary.TargetRegion,
 				TargetAudience:  businessSummary.TargetAudience,
+				Colors:          businessSummary.Colors,
 			},
 		}
 
 		json.NewEncoder(w).Encode(resp)
+	}
+}
+
+func PatchBusinessSummaries(store storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := r.Context().Value(utils.UserIdKey).(string)
+		if !ok {
+			http.Error(w, "User ID not found in context", http.StatusInternalServerError)
+			return
+		}
+
+		var updateFields map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&updateFields); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err := store.UpdateBusinessSummary(userID, updateFields)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -287,6 +311,10 @@ func scrapeSitemap(req types.BusinessSummariesRequest, userID string, llmClient 
 }
 
 func saveSitemap(userID string, urls []string, llmClient *utils.LLMClient, store storage.Storage) error {
+	if len(urls) == 0 {
+		return errors.New("no URLs to save")
+	}
+
 	embeddings, err := llmClient.OpenaiEmbeddings(urls)
 	if err != nil {
 		return err

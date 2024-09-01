@@ -24,6 +24,7 @@ func NewServer(listenAddr string, store storage.Storage, llmClient *utils.LLMCli
 
 func (s *Server) routes() {
 	s.router.HandleFunc("POST /business-summaries", handlers.BusinessSummaries2(s.store, s.llmClient))
+	s.router.HandleFunc("PATCH /business-summaries", handlers.PatchBusinessSummaries(s.store))
 	s.router.HandleFunc("GET /business-summaries", handlers.GetBusinessSummaries(s.store))
 	s.router.HandleFunc("GET /sitemap", handlers.GetSitemap(s.store))
 	s.router.HandleFunc("POST /campaigns", handlers.GenerateCampaigns(s.store, s.llmClient))
