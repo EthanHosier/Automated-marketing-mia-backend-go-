@@ -19,7 +19,7 @@ import (
 )
 
 func Themes(themePrompt string, llmClient *LLMClient) ([]types.ThemeData, error) {
-	completion, err := llmClient.OpenaiCompletion(themePrompt, openai.GPT4o)
+	completion, err := llmClient.OpenaiCompletion(themePrompt, openai.GPT4oMini)
 
 	if err != nil {
 		return nil, err

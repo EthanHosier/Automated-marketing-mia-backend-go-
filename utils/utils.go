@@ -19,8 +19,8 @@ import (
 type BracketType int
 
 const (
-	SquareBracket BracketType = iota // Starts from 0
-	CurlyBracket                     // Increments to 1
+	SquareBracket BracketType = iota
+	CurlyBracket
 )
 
 func Round2Dec(val float64) float64 {

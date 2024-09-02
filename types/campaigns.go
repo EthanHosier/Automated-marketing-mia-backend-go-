@@ -120,7 +120,20 @@ type PopulatedColorField struct {
 }
 
 type PopulatedTemplate struct {
+	Platform    string                `json:"platform"`
 	Fields      []PopulatedField      `json:"fields"`
 	ColorFields []PopulatedColorField `json:"colors"`
 	Caption     string                `json:"caption"`
+}
+
+type TemplateAndCaption struct {
+	TemplateResult UpdateTemplateResult `json:"template"`
+	Caption        string               `json:"caption"`
+}
+
+type GeneratedCampaign struct {
+	Posts            []TemplateAndCaption `json:"posts"`
+	PrimaryKeyword   string               `json:"primaryKeyword"`
+	SecondaryKeyword string               `json:"secondaryKeyword"`
+	Theme            string               `json:"theme"`
 }

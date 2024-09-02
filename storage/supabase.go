@@ -93,8 +93,10 @@ func (s *SupabaseStorage) GetSitemap(userId string) ([]types.StoredSitemapUrl, e
 	return results, err
 }
 
-func (s *SupabaseStorage) GetRandomTemplate() (*types.NearestTemplateResponse, error) {
+func (s *SupabaseStorage) GetRandomTemplates(numTemplates int) ([]types.NearestTemplateResponse, error) {
 	var allTemplates []types.NearestTemplateResponse
+
+	// Fetch all templates from the database
 	err := s.client.DB.From("canva_templates").Select("*").Execute(&allTemplates)
 	if err != nil {
 		return nil, err
@@ -105,14 +107,26 @@ func (s *SupabaseStorage) GetRandomTemplate() (*types.NearestTemplateResponse, e
 		return nil, errors.New("no templates found")
 	}
 
+	// Ensure numTemplates is within the bounds of available templates
+	if numTemplates <= 0 {
+		return nil, errors.New("numTemplates must be greater than 0")
+	}
+	if numTemplates > len(allTemplates) {
+		return nil, errors.New("numTemplates exceeds the number of available templates")
+	}
+
 	// Seed the random number generator
 	rand.Seed(time.Now().UnixNano())
 
-	// Pick a random template
-	randomIndex := rand.Intn(len(allTemplates))
-	randomTemplate := allTemplates[randomIndex]
+	// Shuffle the templates
+	rand.Shuffle(len(allTemplates), func(i, j int) {
+		allTemplates[i], allTemplates[j] = allTemplates[j], allTemplates[i]
+	})
 
-	return &randomTemplate, nil
+	// Select the first numTemplates from the shuffled list
+	selectedTemplates := allTemplates[:numTemplates]
+
+	return selectedTemplates, nil
 }
 
 func (s *SupabaseStorage) GetNearestTemplate(vector types.Vector) (*types.NearestTemplateResponse, error) {

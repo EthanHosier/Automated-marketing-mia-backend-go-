@@ -74,6 +74,7 @@ func saveTokens(tokens *types.Token) error {
 
 func refreshAccessToken() (string, error) {
 	mu.Lock()
+
 	defer mu.Unlock()
 
 	tokens, err := loadTokens()
@@ -132,7 +133,8 @@ func refreshAccessToken() (string, error) {
 	}
 
 	// Update the expiration time and save the tokens
-	newTokens.ExpiresIn = time.Now().Unix() + (newTokens.ExpiresIn - time.Now().Unix())
+	// I CHANGED THS FROM "	newTokens.ExpiresIn = time.Now().Unix() + (newTokens.ExpiresIn - time.Now().Unix())""
+	newTokens.ExpiresIn = time.Now().Unix() + newTokens.ExpiresIn // now absolute time of expiration
 	err = saveTokens(&newTokens)
 	if err != nil {
 		return "", err
@@ -187,7 +189,9 @@ func PickBestImages(candidateImages []string, campaignInfo string, imageFields [
 			bestImage, err := llmClient.OpenaiImageCompletion(prompt, candidateImages, openai.GPT4o)
 			if err != nil {
 				log.Printf("Error getitng openai image completion: %v", err)
+				log.Printf("candidate images: %v", candidateImages)
 				bestImagePairChan <- BestImagePair{i, 0}
+				return
 			}
 
 			index, err := FirstNumberInString(bestImage)
@@ -210,7 +214,7 @@ func PickBestImages(candidateImages []string, campaignInfo string, imageFields [
 	return bestImages, nil
 }
 
-func PopulateTemplate(ID string, imageFields []types.PopulatedField, textFields []types.PopulatedField, colorFields []types.PopulatedColorField) error {
+func PopulateTemplate(ID string, imageFields []types.PopulatedField, textFields []types.PopulatedField, colorFields []types.PopulatedColorField) (*types.UpdateTemplateResult, error) {
 	inputData := map[string]map[string]string{}
 
 	for _, field := range imageFields {
@@ -243,18 +247,18 @@ func PopulateTemplate(ID string, imageFields []types.PopulatedField, textFields 
 
 	accessToken, err := AccessToken()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	url := "https://api.canva.com/rest/v1/autofills"
 	jsonData, err := json.Marshal(requestData)
 	if err != nil {
-		return fmt.Errorf("error marshalling request data:", err)
+		return nil, fmt.Errorf("error marshalling request data:", err)
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return fmt.Errorf("error creating request: %v", err)
+		return nil, fmt.Errorf("error creating request: %v", err)
 
 	}
 
@@ -264,17 +268,17 @@ func PopulateTemplate(ID string, imageFields []types.PopulatedField, textFields 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("error sending request: %v", err)
+		return nil, fmt.Errorf("error sending request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Received non-OK response: %s\n", resp.Status)
+		return nil, fmt.Errorf("Received non-OK response: %s\n", resp.Status)
 	}
 
 	var responseBody types.UpdateTemplateResponse
 	if err := json.NewDecoder(resp.Body).Decode(&responseBody); err != nil {
-		return fmt.Errorf("error decoding response body:", err)
+		return nil, fmt.Errorf("error decoding response body:", err)
 	}
 
 	var jobStatusResponse types.UpdateTemplateJobStatus
@@ -284,34 +288,33 @@ func PopulateTemplate(ID string, imageFields []types.PopulatedField, textFields 
 		statusURL := fmt.Sprintf("https://api.canva.com/rest/v1/autofills/%s", responseBody.Job.ID)
 		req, err := http.NewRequest("GET", statusURL, nil)
 		if err != nil {
-			return fmt.Errorf("error creating request: %v", err)
+			return nil, fmt.Errorf("error creating request: %v", err)
 
 		}
 
 		req.Header.Set("Authorization", "Bearer "+accessToken)
 		resp, err := client.Do(req)
 		if err != nil {
-			return fmt.Errorf("error sending request: %vs", err)
+			return nil, fmt.Errorf("error sending request: %vs", err)
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("received non-OK response: %s\n", resp.Status)
+			return nil, fmt.Errorf("received non-OK response: %s\n", resp.Status)
 		}
 
 		if err := json.NewDecoder(resp.Body).Decode(&jobStatusResponse); err != nil {
-			return fmt.Errorf("error decoding response body: %v", err)
+			return nil, fmt.Errorf("error decoding response body: %v", err)
 		}
 
 		log.Println("Template update status:", jobStatusResponse.Job.Status)
 	}
 
 	if jobStatusResponse.Job.Status == "failed" {
-		return fmt.Errorf("job failed")
+		return nil, fmt.Errorf("job failed")
 	}
 
-	log.Printf("Response: %+v\n", jobStatusResponse.Job.Result)
-	return nil
+	return &jobStatusResponse.Job.Result, nil
 }
 
 func IsValidImageURL(url string) bool {
@@ -329,7 +332,7 @@ func IsValidImageURL(url string) bool {
 	return false
 }
 
-func UploadAsset(asset []byte, name string) (*types.UploadAssetResponse, error) {
+func uploadAsset(asset []byte, name string) (*types.UploadAssetResponse, error) {
 	accessToken, err := AccessToken()
 	if err != nil {
 		log.Fatalf("Error getting access token: %v", err)
@@ -405,4 +408,77 @@ func UploadAsset(asset []byte, name string) (*types.UploadAssetResponse, error) 
 	}
 
 	return &uploadAssetResponse, nil
+}
+
+func UploadColorAssets(colorFields []types.PopulatedColorField) ([]types.PopulatedColorField, error) {
+	colorFieldCh := make(chan types.PopulatedColorField, len(colorFields))
+	colorFieldWg := sync.WaitGroup{}
+	colorFieldWg.Add(len(colorFields))
+
+	for _, field := range colorFields {
+		go func(field types.PopulatedColorField) {
+			defer colorFieldWg.Done()
+
+			colorImg, err := CreateColorImage(field.Color)
+			if err != nil {
+				log.Println("error creating color image: ", err)
+				return
+			}
+
+			resp, err := uploadAsset(colorImg, "name")
+			if err != nil {
+				log.Println("error uploading color image: ", err)
+				return
+			}
+
+			field.Color = resp.Job.ID
+			colorFieldCh <- field
+		}(field)
+	}
+
+	colorFieldWg.Wait()
+	close(colorFieldCh)
+
+	colorFields = []types.PopulatedColorField{}
+	for field := range colorFieldCh {
+		colorFields = append(colorFields, field)
+	}
+
+	return colorFields, nil
+}
+
+func UploadImageAssets(imageFields []types.PopulatedField, bestImages []string) ([]types.PopulatedField, error) {
+	imageFieldsCh := make(chan types.PopulatedField, len(imageFields))
+	imageFieldsWg := sync.WaitGroup{}
+	imageFieldsWg.Add(len(imageFields))
+
+	for i, field := range imageFields {
+		go func(field types.PopulatedField, i int) {
+			defer imageFieldsWg.Done()
+			img, err := DownloadImage(bestImages[i])
+			if err != nil {
+				log.Println("error downloading image: ", err)
+				return
+			}
+
+			resp, err := uploadAsset(img, "name")
+			if err != nil {
+				log.Println("error uploading image: ", err)
+				return
+			}
+
+			field.Value = resp.Job.ID
+			imageFieldsCh <- field
+		}(field, i)
+	}
+
+	imageFieldsWg.Wait()
+	close(imageFieldsCh)
+
+	imageFields = []types.PopulatedField{}
+	for field := range imageFieldsCh {
+		imageFields = append(imageFields, field)
+	}
+
+	return imageFields, nil
 }

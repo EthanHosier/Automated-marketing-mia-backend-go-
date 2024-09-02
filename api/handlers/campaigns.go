@@ -63,7 +63,9 @@ func GenerateCampaigns(store storage.Storage, llmClient *utils.LLMClient) http.H
 			return
 		}
 
-		log.Println("generated campaign", campaign)
+		log.Println("\n\n\n\n")
+		log.Println(len(campaign.Posts))
+		log.Println("generated campaign %+v", campaign)
 		resp := types.GenerateCampaignsResponse{}
 
 		json.NewEncoder(w).Encode(resp)
@@ -92,7 +94,7 @@ func generateThemes(pageContents []types.BodyContentsScrapeResponse, businessSum
 	return themes, nil
 }
 
-func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusinessSummary, llmClient *utils.LLMClient, store storage.Storage) (string, error) {
+func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusinessSummary, llmClient *utils.LLMClient, store storage.Storage) (*types.GeneratedCampaign, error) {
 	log.Printf("Generating campaign from theme \"%v\"\n", theme.Theme)
 	url := theme.Url
 
@@ -121,32 +123,32 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 	}()
 
 	// Choose the template for the campaign
-	templateCh := make(chan *types.NearestTemplateResponse, 1)
+	templateCh := make(chan []types.NearestTemplateResponse, 1)
 	go func() {
-		template, err := chosenTemplate(theme.ImageCanvaTemplateDescription, llmClient, store)
+		templates, err := chosenTemplates(5, store)
 		if err != nil {
 			fmt.Errorf("error getting template for campaign: %w", err)
 			templateCh <- nil
 			return
 		}
-		templateCh <- template
+		templateCh <- templates
 	}()
 
 	primaryKeyword, secondaryKeyword, err := campaignChosenKewords(theme.Keywords)
 	if err != nil {
-		return "", fmt.Errorf("error getting keywords for campaign: %w", err)
+		return nil, fmt.Errorf("error getting keywords for campaign: %w", err)
 	}
 
 	researchReportData, err := utils.ResearchReportData(primaryKeyword, llmClient)
 	if err != nil {
-		return "", fmt.Errorf("error getting research report data: %w", err)
+		return nil, fmt.Errorf("error getting research report data: %w", err)
 	}
 
 	// Generate Research Report
 	researchReportCh := make(chan string, 1)
 	go func() {
 		researchReportPrompt := prompts.ResearchReportPrompt(primaryKeyword, researchReportData)
-		researchReport, err := llmClient.OpenaiCompletion(researchReportPrompt, openai.GPT4o)
+		researchReport, err := llmClient.OpenaiCompletion(researchReportPrompt, openai.GPT4oMini)
 		if err != nil {
 			log.Println("error generating research report: %w", err)
 			researchReportCh <- ""
@@ -156,22 +158,59 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 	}()
 
 	// Gather the template to be used for the campaign
-	template := <-templateCh
+	templates := <-templateCh
 	scrapedPageBody := <-scrapedPageBodyCh
+	scrapedPageContents := <-scrapedPageContentsCh
 
+	fmt.Printf("Scraped page body contents: %+v\n", scrapedPageContents)
+
+	platforms := []string{"instagram", "facebook", "twitterX", "linkedin", "whatsapp"}
+
+	templateResultCh := make(chan *types.TemplateAndCaption, len(platforms))
+	templateResultWg := sync.WaitGroup{}
+	templateResultWg.Add(len(platforms))
+
+	for i, platform := range platforms {
+		go func(platform string) {
+			resp, err := processTemplate(platform, businessSummary, theme, primaryKeyword, secondaryKeyword, url, scrapedPageBody, researchReportData, templates[i], scrapedPageContents, llmClient)
+			if err != nil {
+				log.Printf("Error processing template %v\n\n", err)
+				templateResultCh <- nil
+			}
+			templateResultCh <- resp
+		}(platform)
+	}
+
+	templateResultWg.Wait()
+	close(templateResultCh)
+
+	templateAndCaptions := []types.TemplateAndCaption{}
+	for templateAndCaption := range templateResultCh {
+		templateAndCaptions = append(templateAndCaptions, *templateAndCaption)
+	}
+
+	return &types.GeneratedCampaign{
+		Posts:            templateAndCaptions,
+		PrimaryKeyword:   primaryKeyword,
+		SecondaryKeyword: secondaryKeyword,
+		Theme:            theme.Theme,
+	}, nil
+}
+
+func processTemplate(platform string, businessSummary types.StoredBusinessSummary, theme types.ThemeData, primaryKeyword string, secondaryKeyword string, url string, scrapedPageBody string, researchReportData types.ResearchReportData, template types.NearestTemplateResponse, pageContents types.BodyContentsScrapeResponse, llmClient *utils.LLMClient) (*types.TemplateAndCaption, error) {
 	templatePrompt := prompts.TemplatePrompt("instagram", businessSummary, theme.Theme, primaryKeyword, secondaryKeyword, url, scrapedPageBody,
 		researchReportData, template.Fields, template.ColorFields)
 
-	templateCompletion, err := llmClient.OpenaiCompletion(templatePrompt, openai.GPT4o)
+	templateCompletion, err := llmClient.OpenaiCompletion(templatePrompt, openai.GPT4oMini)
 	if err != nil {
-		return "", fmt.Errorf("error generating template completion: %w", err)
+		return nil, fmt.Errorf("error generating template completion: %w", err)
 	}
 	extractedTemplate := utils.ExtractJsonObj(templateCompletion, utils.CurlyBracket)
 
 	var populatedTemplate types.PopulatedTemplate
 	err = json.Unmarshal([]byte(extractedTemplate), &populatedTemplate)
 	if err != nil {
-		return "", fmt.Errorf("error unmarshalling populated template: %w.\n Template completion was %+v\n Extracted template was %+v", err, templateCompletion, extractedTemplate)
+		return nil, fmt.Errorf("error unmarshalling populated template: %w.\n Template completion was %+v\n Extracted template was %+v", err, templateCompletion, extractedTemplate)
 	}
 
 	imageFields := []types.PopulatedField{}
@@ -191,117 +230,32 @@ func campaignFromTheme(theme types.ThemeData, businessSummary types.StoredBusine
 
 	campaignDetailsStr := fmt.Sprintf("Primary keyword: %v\nSecondary keyword: %v\nURL: %v\nTheme: %v\nTemplate Description: %v", primaryKeyword, secondaryKeyword, url, theme.Theme, theme.ImageCanvaTemplateDescription)
 
-	pageContents := <-scrapedPageContentsCh
 	bestImages, err := utils.PickBestImages(pageContents.ImageUrls, campaignDetailsStr, imageFields, llmClient)
 	if err != nil {
-		return "", fmt.Errorf("error picking best images: %w", err)
+		return nil, fmt.Errorf("error picking best images: %w", err)
 	}
 
-	imageFields, err = uploadImageAssets(imageFields, bestImages)
+	imageFields, err = utils.UploadImageAssets(imageFields, bestImages)
 	if err != nil {
-		return "", fmt.Errorf("error uploading image assets: %w", err)
+		return nil, fmt.Errorf("error uploading image assets: %w", err)
 	}
 
-	colorFields, err := uploadColorAssets(populatedTemplate.ColorFields)
+	colorFields, err := utils.UploadColorAssets(populatedTemplate.ColorFields)
 	if err != nil {
-		return "", fmt.Errorf("error uploading color assets: %w", err)
+		return nil, fmt.Errorf("error uploading color assets: %w", err)
 	}
 
 	log.Printf("Populated template: %+v\n", populatedTemplate)
 
-	err = utils.PopulateTemplate(template.ID, imageFields, textFields, colorFields)
+	result, err := utils.PopulateTemplate(template.ID, imageFields, textFields, colorFields)
 	if err != nil {
-		return "", fmt.Errorf("error populating template: %w", err)
+		return nil, fmt.Errorf("error populating template: %w", err)
 	}
 
-	return "", nil
-}
-
-func uploadColorAssets(colorFields []types.PopulatedColorField) ([]types.PopulatedColorField, error) {
-	colorFieldCh := make(chan types.PopulatedColorField, len(colorFields))
-	colorFieldWg := sync.WaitGroup{}
-	colorFieldWg.Add(len(colorFields))
-
-	for _, field := range colorFields {
-		go func(field types.PopulatedColorField) {
-			defer colorFieldWg.Done()
-
-			colorImg, err := utils.CreateColorImage(field.Color)
-			if err != nil {
-				log.Println("error creating color image: ", err)
-				return
-			}
-
-			resp, err := utils.UploadAsset(colorImg, "name")
-			if err != nil {
-				log.Println("error uploading color image: ", err)
-				return
-			}
-
-			field.Color = resp.Job.ID
-			colorFieldCh <- field
-		}(field)
-	}
-
-	colorFieldWg.Wait()
-	close(colorFieldCh)
-
-	colorFields = []types.PopulatedColorField{}
-	for field := range colorFieldCh {
-		colorFields = append(colorFields, field)
-	}
-
-	return colorFields, nil
-}
-
-func uploadImageAssets(imageFields []types.PopulatedField, bestImages []string) ([]types.PopulatedField, error) {
-	imageFieldsCh := make(chan types.PopulatedField, len(imageFields))
-	imageFieldsWg := sync.WaitGroup{}
-	imageFieldsWg.Add(len(imageFields))
-
-	for i, field := range imageFields {
-		go func(field types.PopulatedField, i int) {
-			defer imageFieldsWg.Done()
-			img, err := utils.DownloadImage(bestImages[i])
-			if err != nil {
-				log.Println("error downloading image: ", err)
-				return
-			}
-
-			resp, err := utils.UploadAsset(img, "name")
-			if err != nil {
-				log.Println("error uploading image: ", err)
-				return
-			}
-
-			field.Value = resp.Job.ID
-			imageFieldsCh <- field
-		}(field, i)
-	}
-
-	imageFieldsWg.Wait()
-	close(imageFieldsCh)
-
-	imageFields = []types.PopulatedField{}
-	for field := range imageFieldsCh {
-		imageFields = append(imageFields, field)
-	}
-
-	return imageFields, nil
-}
-
-func campaignUrl(urlDescription string, store storage.Storage, llmClient *utils.LLMClient) (string, error) {
-	urlEmbedding, err := llmClient.OpenaiEmbedding(urlDescription)
-	if err != nil {
-		return "", fmt.Errorf("error getting embedding for URL description: %w", err)
-	}
-
-	nearestUrl, err := store.GetNearestUrl(urlEmbedding)
-	if err != nil {
-		return "", fmt.Errorf("error getting nearest URL: %w", err)
-	}
-
-	return nearestUrl, nil
+	return &types.TemplateAndCaption{
+		TemplateResult: *result,
+		Caption:        populatedTemplate.Caption,
+	}, nil
 }
 
 func campaignChosenKewords(keywords []string) (string, string, error) {
@@ -316,19 +270,13 @@ func campaignChosenKewords(keywords []string) (string, string, error) {
 	return primaryKeyword, secondaryKeyword, nil
 }
 
-func chosenTemplate(templateDescription string, llmClient *utils.LLMClient, store storage.Storage) (*types.NearestTemplateResponse, error) {
-	// embedding, err := llmClient.OpenaiEmbedding(templateDescription)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("error getting embedding for optimal keyword: %w", err)
-	// }
-
-	// template, err := store.GetNearestTemplate(embedding)
-	template, err := store.GetRandomTemplate()
+func chosenTemplates(numTemplates int, store storage.Storage) ([]types.NearestTemplateResponse, error) {
+	templates, err := store.GetRandomTemplates(numTemplates)
 	if err != nil {
 		return nil, fmt.Errorf("error getting nearest template: %w", err)
 	}
 
-	return template, nil
+	return templates, nil
 }
 
 func candidatePages(userID string, store storage.Storage) ([]types.BodyContentsScrapeResponse, error) {
