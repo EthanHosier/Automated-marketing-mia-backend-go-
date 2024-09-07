@@ -161,6 +161,7 @@ func StartCanvaTokenRefresher(interval time.Duration) {
 	}
 }
 
+// shouldnt be here
 // TODO: MAKE THIS TAKE INTO CONSIDERATION THE PROMPT OF THE IMAGE FIELD BEFORE POPULATING (types.TemplateField.description)
 func PickBestImages(candidateImages []string, campaignInfo string, imageFields []types.PopulatedField, llmClient *LLMClient) ([]string, error) {
 	bestImagesWg := sync.WaitGroup{}

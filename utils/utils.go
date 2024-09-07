@@ -180,31 +180,6 @@ func FirstNumberInString(s string) (int, error) {
 	return number, nil
 }
 
-func HexToColor(hex string) (color.Color, error) {
-	if strings.HasPrefix(hex, "#") {
-		hex = hex[1:]
-	}
-
-	if len(hex) != 6 {
-		return nil, fmt.Errorf("invalid hex color format")
-	}
-
-	r, err := strconv.ParseUint(hex[0:2], 16, 8)
-	if err != nil {
-		return nil, err
-	}
-	g, err := strconv.ParseUint(hex[2:4], 16, 8)
-	if err != nil {
-		return nil, err
-	}
-	b, err := strconv.ParseUint(hex[4:6], 16, 8)
-	if err != nil {
-		return nil, err
-	}
-
-	return color.RGBA{R: uint8(r), G: uint8(g), B: uint8(b), A: 255}, nil
-}
-
 func DownloadImage(imageURL string) ([]byte, error) {
 	resp, err := http.Get(imageURL)
 	if err != nil {

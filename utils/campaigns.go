@@ -219,11 +219,7 @@ func platformResearchReport(keyword string, platform string) (*types.PlatformRes
 	}, nil
 }
 
-func CreateColorImage(hexColor string) ([]byte, error) {
-	c, err := HexToColor(hexColor)
-	if err != nil {
-		return nil, err
-	}
+
 
 	// Create a new RGBA image with the desired size.
 	img := image.NewRGBA(image.Rect(0, 0, 100, 100))
