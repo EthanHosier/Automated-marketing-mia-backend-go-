@@ -4,299 +4,125 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"math/rand"
 	"net/http"
-	"os"
-	"time"
 
-	"github.com/ethanhosier/mia-backend-go/types"
-	"github.com/ethanhosier/mia-backend-go/utils"
 	supa "github.com/nedpals/supabase-go"
 )
 
 type SupabaseStorage struct {
-	client *supa.Client
+	client        *supa.Client
+	url           string
+	serviceKey    string
+	rpcHttpClient *http.Client
 }
 
-func NewSupabaseStorage(client *supa.Client) *SupabaseStorage {
+func NewSupabaseStorage(client *supa.Client, url string, serviceKey string, rpcHttpClient *http.Client) *SupabaseStorage {
+
 	return &SupabaseStorage{
-		client: client,
+		client:        client,
+		url:           url,
+		serviceKey:    serviceKey,
+		rpcHttpClient: rpcHttpClient,
 	}
 }
 
-func (s *SupabaseStorage) StoreBusinessSummary(userId string, businessSummary types.BusinessSummary) error {
-	row := types.StoredBusinessSummary{
-		ID:              userId,
-		BusinessName:    businessSummary.BusinessName,
-		BusinessSummary: businessSummary.BusinessSummary,
-		BrandVoice:      businessSummary.BrandVoice,
-		TargetRegion:    businessSummary.TargetRegion,
-		TargetAudience:  businessSummary.TargetAudience,
-		Colors:          businessSummary.Colors,
+func (s *SupabaseStorage) Store(table TableName, data interface{}) (interface{}, error) {
+	tableName, ok := tableNames[table]
+	if !ok {
+		return nil, errors.New("table not found")
 	}
 
-	var results []types.StoredBusinessSummary
-	err := s.client.DB.From("businessSummaries").Insert(row).Execute(&results)
-
-	return err
-}
-
-func (s *SupabaseStorage) UpdateBusinessSummary(userId string, updateFields map[string]interface{}) error {
-	var summaryInstance types.StoredBusinessSummary
-	err := utils.ValidateMapKeys(summaryInstance, updateFields)
-	if err != nil {
-		return err
-	}
-
-	var results []types.StoredBusinessSummary
-	err = s.client.DB.From("businessSummaries").Update(updateFields).Eq("id", userId).Execute(&results)
-
-	if err != nil {
-		log.Println("Error updating business summary fields:", err)
-	}
-
-	return err
-}
-
-func (s *SupabaseStorage) StoreSitemap(userId string, urls []string, embeddings []types.Vector) error {
-	uniqueUrls := utils.RemoveDuplicates(urls)
-
-	var rows []types.StoredSitemapUrl
-	for i, url := range uniqueUrls {
-		rows = append(rows, types.StoredSitemapUrl{
-			ID:     userId,
-			Url:    url,
-			Vector: embeddings[i],
-		})
-	}
-
-	var results []types.StoredBusinessSummary
-
-	err := s.client.DB.From("sitemaps").Insert(rows).Execute(&results)
-
-	return err
-}
-
-func (s *SupabaseStorage) GetBusinessSummary(userId string) (types.StoredBusinessSummary, error) {
-	var result types.StoredBusinessSummary
-	err := s.client.DB.From("businessSummaries").Select("*").Single().Eq("id", userId).Execute(&result)
-
-	return result, err
-}
-
-func (s *SupabaseStorage) GetSitemap(userId string) ([]types.StoredSitemapUrl, error) {
-	var results []types.StoredSitemapUrl
-	err := s.client.DB.From("sitemaps").Select("url").Eq("id", userId).Execute(&results)
+	var results []interface{}
+	err := s.client.DB.From(tableName).Insert(data).Execute(&results)
 
 	return results, err
 }
 
-func (s *SupabaseStorage) GetRandomTemplates(numTemplates int) ([]types.NearestTemplateResponse, error) {
-	var allTemplates []types.NearestTemplateResponse
-
-	// Fetch all templates from the database
-	err := s.client.DB.From("canva_templates").Select("*").Execute(&allTemplates)
-	if err != nil {
-		return nil, err
+func (s *SupabaseStorage) Get(table TableName, id string) (interface{}, error) {
+	tableName, ok := tableNames[table]
+	if !ok {
+		return nil, errors.New("table not found")
 	}
 
-	// Check if there are any templates available
-	if len(allTemplates) == 0 {
-		return nil, errors.New("no templates found")
+	var result interface{}
+	err := s.client.DB.From(tableName).Select("*").Single().Eq("id", id).Execute(&result)
+
+	return result, err
+}
+
+func (s *SupabaseStorage) GetRandom(table TableName, limit int) ([]interface{}, error) {
+	tableName, ok := tableNames[table]
+	if !ok {
+		return nil, errors.New("table not found")
 	}
 
-	// Ensure numTemplates is within the bounds of available templates
-	if numTemplates <= 0 {
-		return nil, errors.New("numTemplates must be greater than 0")
-	}
-	if numTemplates > len(allTemplates) {
-		return nil, errors.New("numTemplates exceeds the number of available templates")
-	}
+	var results []interface{}
+	err := s.client.DB.From(tableName).Select("*").Limit(limit).Execute(&results)
 
-	// Seed the random number generator
-	rand.Seed(time.Now().UnixNano())
-
-	// Shuffle the templates
-	rand.Shuffle(len(allTemplates), func(i, j int) {
-		allTemplates[i], allTemplates[j] = allTemplates[j], allTemplates[i]
+	rand.Shuffle(len(results), func(i, j int) {
+		results[i], results[j] = results[j], results[i]
 	})
 
-	// Select the first numTemplates from the shuffled list
-	selectedTemplates := allTemplates[:numTemplates]
-
-	return selectedTemplates, nil
+	l := min(len(results), limit)
+	return results[:l], err
 }
 
-func (s *SupabaseStorage) GetNearestTemplate(vector types.Vector) (*types.NearestTemplateResponse, error) {
-	url := os.Getenv("SUPABASE_URL") + "/rest/v1/rpc/match_canva_templates"
-
-	// Create a map for the JSON payload
-	payload := map[string]interface{}{
-		"query_embedding": vector,
-		"match_threshold": 0.0,
-		"match_count":     1,
+func (s *SupabaseStorage) Update(table TableName, id string, updateFields map[string]interface{}) (interface{}, error) {
+	tableName, ok := tableNames[table]
+	if !ok {
+		return nil, errors.New("table not found")
 	}
 
-	// Convert the payload to JSON
+	var results []interface{}
+	err := s.client.DB.From(tableName).Update(updateFields).Eq("id", id).Execute(&results)
+
+	return results, err
+}
+
+func (s *SupabaseStorage) Rpc(rpcMethod RpcMethod, payload map[string]interface{}) (interface{}, error) {
+	method, ok := rpcMethods[rpcMethod]
+	if !ok {
+		return nil, errors.New("rpc method not found")
+	}
+
+	url := s.url + method
+
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		log.Println("Error marshalling payload:", err)
 		return nil, err
 	}
 
-	// Create a new POST request
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		log.Println("Error creating request:", err)
 		return nil, err
 	}
 
-	// Set headers
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("apikey", os.Getenv("SUPABASE_SERVICE_KEY"))
+	req.Header.Set("apikey", s.serviceKey)
 
-	// Create a new HTTP client and send the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := s.rpcHttpClient.Do(req)
 	if err != nil {
 		log.Println("Error making request:", err)
 		return nil, err
 	}
-	defer resp.Body.Close() // Ensure the response body is closed
+	defer resp.Body.Close()
 
-	// Read the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println("Error reading response body:", err)
 		return nil, err
 	}
 
-	// Parse the JSON response if needed
-	var result []types.NearestTemplateResponse // Adjust based on your response structure
+	var result []interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
-		log.Println("Error unmarshalling response:", err)
-		return nil, err
+		return nil, fmt.Errorf("error unmarshalling response: %v", err)
 	}
 
-	return &result[0], nil
-}
-
-func (s *SupabaseStorage) GetNearestUrl(vector types.Vector) (string, error) {
-	url := os.Getenv("SUPABASE_URL") + "/rest/v1/rpc/match_url"
-
-	payload := map[string]interface{}{
-		"query_embedding": vector,
-		"match_threshold": 0.0,
-		"match_count":     1,
-	}
-
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		log.Println("Error marshalling payload:", err)
-		return "", err
-	}
-
-	// Create a new POST request
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		log.Println("Error creating request:", err)
-		return "", err
-	}
-
-	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("apikey", os.Getenv("SUPABASE_SERVICE_KEY"))
-
-	// Create a new HTTP client and send the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Println("Error making request:", err)
-		return "", err
-	}
-	defer resp.Body.Close() // Ensure the response body is closed
-
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Println("Error reading response body:", err)
-		return "", err
-	}
-
-	type NearestUrlResponse struct {
-		Url        string  `json:"url"`
-		ID         string  `json:"id"`
-		Similarity float32 `json:"similarity"`
-	}
-
-	var result []NearestUrlResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		log.Println("Error unmarshalling response:", err)
-		return "", err
-	}
-
-	return result[0].Url, nil
-}
-
-func (s *SupabaseStorage) GetRandomUrls(userID string, numUrls int) ([]string, error) {
-	url := os.Getenv("SUPABASE_URL") + "/rest/v1/rpc/random_urls"
-
-	payload := map[string]interface{}{
-		"sitemap_id": userID,
-		"url_count":  numUrls,
-	}
-
-	// Convert the payload to JSON
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		log.Println("Error marshalling payload:", err)
-		return nil, err
-	}
-
-	// Create a new POST request
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		log.Println("Error creating request:", err)
-		return nil, err
-	}
-
-	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("apikey", os.Getenv("SUPABASE_SERVICE_KEY"))
-
-	// Create a new HTTP client and send the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Println("Error making request:", err)
-		return nil, err
-	}
-	defer resp.Body.Close() // Ensure the response body is closed
-
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Println("Error reading response body:", err)
-		return nil, err
-	}
-
-	type RandomUrlsResponse struct {
-		Url string `json:"url"`
-		ID  string `json:"id"`
-	}
-
-	var result []RandomUrlsResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		log.Println("Error unmarshalling response:", err)
-		return nil, err
-	}
-
-	var urls []string
-	for _, r := range result {
-		urls = append(urls, r.Url)
-	}
-
-	return urls, nil
+	return result, nil
 }
