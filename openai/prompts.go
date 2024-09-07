@@ -1,10 +1,10 @@
-package prompts
+package openai
 
 const (
-	ColorThemesPrompt     = "I am going to give you a screenshot of a business' landing page. Please return me a list of the 5 main hex colors which represent's the business' theme. The response should just be json a list of colours, and nothing else before the start and closed bracket. For examle: [\"#000000\", \"#FFFFFF\"]"
-	ScrapedWebPageSummary = "Summarise what we learn about the business from this: "
+	ColorThemesPrompt           = "I am going to give you a screenshot of a business' landing page. Please return me a list of the 5 main hex colors which represent's the business' theme. The response should just be json a list of colours, and nothing else before the start and closed bracket. For examle: [\"#000000\", \"#FFFFFF\"]"
+	ScrapedWebPageSummaryPrompt = "Summarise what we learn about the business from this: "
 
-	BusinessSummary = `You are a business analyst Skilled at summarizing large amounts of information into concise paragraphs.
+	BusinessSummaryPrompt = `You are a business analyst Skilled at summarizing large amounts of information into concise paragraphs.
 
 **Task**: Analyze the web scraped pages data and provide the following insights in a structured format:
           1. The business name.

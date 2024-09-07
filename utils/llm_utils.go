@@ -19,16 +19,6 @@ type LLMClient struct {
 	OpenaiClient  *openai.Client
 }
 
-func CreateLLMClient() *LLMClient {
-	bedrockClient := createBedrockClient()
-	openaiClient := createOpenaiClient()
-
-	return &LLMClient{
-		BedrockClient: bedrockClient,
-		OpenaiClient:  openaiClient,
-	}
-}
-
 func createBedrockClient() *bedrockruntime.Client {
 	region := os.Getenv("AWS_REGION")
 	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(region))
@@ -38,12 +28,6 @@ func createBedrockClient() *bedrockruntime.Client {
 	}
 
 	return bedrockruntime.NewFromConfig(cfg)
-}
-
-func createOpenaiClient() *openai.Client {
-	apiKey := os.Getenv("OPENAI_KEY")
-
-	return openai.NewClient(apiKey)
 }
 
 func (llm *LLMClient) LlamaSummarise(prompt string, maxTokens int) (string, error) {

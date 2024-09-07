@@ -30,38 +30,23 @@ func NewSupabaseStorage(client *supa.Client, url string, serviceKey string, rpcH
 	}
 }
 
-func (s *SupabaseStorage) Store(table TableName, data interface{}) (interface{}, error) {
-	tableName, ok := tableNames[table]
-	if !ok {
-		return nil, errors.New("table not found")
-	}
-
+func (s *SupabaseStorage) store(table string, data interface{}) (interface{}, error) {
 	var results []interface{}
-	err := s.client.DB.From(tableName).Insert(data).Execute(&results)
+	err := s.client.DB.From(table).Insert(data).Execute(&results)
 
 	return results, err
 }
 
-func (s *SupabaseStorage) Get(table TableName, id string) (interface{}, error) {
-	tableName, ok := tableNames[table]
-	if !ok {
-		return nil, errors.New("table not found")
-	}
-
+func (s *SupabaseStorage) get(table string, id string) (interface{}, error) {
 	var result interface{}
-	err := s.client.DB.From(tableName).Select("*").Single().Eq("id", id).Execute(&result)
+	err := s.client.DB.From(table).Select("*").Single().Eq("id", id).Execute(&result)
 
 	return result, err
 }
 
-func (s *SupabaseStorage) GetRandom(table TableName, limit int) ([]interface{}, error) {
-	tableName, ok := tableNames[table]
-	if !ok {
-		return nil, errors.New("table not found")
-	}
-
+func (s *SupabaseStorage) getRandom(table string, limit int) ([]interface{}, error) {
 	var results []interface{}
-	err := s.client.DB.From(tableName).Select("*").Limit(limit).Execute(&results)
+	err := s.client.DB.From(table).Select("*").Limit(limit).Execute(&results)
 
 	rand.Shuffle(len(results), func(i, j int) {
 		results[i], results[j] = results[j], results[i]
@@ -71,19 +56,14 @@ func (s *SupabaseStorage) GetRandom(table TableName, limit int) ([]interface{}, 
 	return results[:l], err
 }
 
-func (s *SupabaseStorage) Update(table TableName, id string, updateFields map[string]interface{}) (interface{}, error) {
-	tableName, ok := tableNames[table]
-	if !ok {
-		return nil, errors.New("table not found")
-	}
-
+func (s *SupabaseStorage) update(table string, id string, updateFields map[string]interface{}) (interface{}, error) {
 	var results []interface{}
-	err := s.client.DB.From(tableName).Update(updateFields).Eq("id", id).Execute(&results)
+	err := s.client.DB.From(table).Update(updateFields).Eq("id", id).Execute(&results)
 
 	return results, err
 }
 
-func (s *SupabaseStorage) Rpc(rpcMethod RpcMethod, payload map[string]interface{}) (interface{}, error) {
+func (s *SupabaseStorage) rpc(rpcMethod RpcMethod, payload map[string]interface{}) (interface{}, error) {
 	method, ok := rpcMethods[rpcMethod]
 	if !ok {
 		return nil, errors.New("rpc method not found")

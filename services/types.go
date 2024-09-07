@@ -1,5 +1,10 @@
 package services
 
+import (
+	"fmt"
+	"strings"
+)
+
 type BodyContentsScrapeResponse struct {
 	Contents  WebsiteData `json:"contents"`
 	ImageUrls []string    `json:"image_urls"`
@@ -14,6 +19,25 @@ type WebsiteData struct {
 	Links           []string            `json:"links"`
 	Summary         string              `json:"summary"`
 	Categories      []string            `json:"categories"`
+}
+
+func (w WebsiteData) String() string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("Title: %s\n", w.Title))
+	sb.WriteString(fmt.Sprintf("Meta Description: %s\n", w.MetaDescription))
+
+	sb.WriteString("Headings:\n")
+	for key, values := range w.Headings {
+		sb.WriteString(fmt.Sprintf("  %s: %s\n", key, strings.Join(values, ", ")))
+	}
+
+	sb.WriteString(fmt.Sprintf("Keywords: %s\n", w.Keywords))
+	sb.WriteString(fmt.Sprintf("Links: %s\n", strings.Join(w.Links, ", ")))
+	sb.WriteString(fmt.Sprintf("Summary: %s\n", w.Summary))
+	sb.WriteString(fmt.Sprintf("Categories: %s\n", strings.Join(w.Categories, ", ")))
+
+	return sb.String()
 }
 
 type ScreenshotScraperResponse struct {

@@ -1,19 +1,13 @@
 package utils
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
-	"image"
-	"image/draw"
-	"image/png"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 
-	"github.com/ethanhosier/mia-backend-go/prompts"
 	"github.com/ethanhosier/mia-backend-go/types"
 	"github.com/sashabaranov/go-openai"
 )
@@ -217,42 +211,4 @@ func platformResearchReport(keyword string, platform string) (*types.PlatformRes
 		Platform: response.Platform,
 		Posts:    response.Posts,
 	}, nil
-}
-
-
-
-	// Create a new RGBA image with the desired size.
-	img := image.NewRGBA(image.Rect(0, 0, 100, 100))
-
-	// Fill the image with the color.
-	draw.Draw(img, img.Bounds(), &image.Uniform{c}, image.Point{}, draw.Src)
-
-	// Encode the image to a buffer.
-	var buf bytes.Buffer
-	err = png.Encode(&buf, img)
-	if err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
-}
-
-func ColorsFromUrl(url string, llmClient *LLMClient) ([]string, error) {
-	screenshotBase64, err := PageScreenshot(url)
-	if err != nil {
-		return nil, fmt.Errorf("error taking screenshot of page: %v", err)
-	}
-
-	resp, err := llmClient.OpenaiImageCompletion(prompts.ColorThemesPrompt, []string{screenshotBase64}, openai.GPT4o)
-	if err != nil {
-		return nil, err
-	}
-
-	var colors []string
-	err = json.Unmarshal([]byte(resp), &colors)
-	if err != nil {
-		return nil, err
-	}
-
-	return colors, nil
 }

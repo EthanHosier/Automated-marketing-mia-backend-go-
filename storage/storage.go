@@ -1,24 +1,25 @@
 package storage
 
-import "github.com/ethanhosier/mia-backend-go/types"
+import (
+	"fmt"
+	"reflect"
+
+	"github.com/ethanhosier/mia-backend-go/researcher"
+)
 
 type TableName int
 type RpcMethod int
 
 const (
-	CANVA_TEMPLATES TableName = iota
-	BUSINESS_SUMMARIES
-	SITEMAPS
-
 	NEAREST_TEMPLATE RpcMethod = iota
 	NEAREST_URL
 	RANDOM_URLS
 )
 
-var tableNames = map[TableName]string{
-	CANVA_TEMPLATES:    "canva_templates",
-	BUSINESS_SUMMARIES: "businessSummaries",
-	SITEMAPS:           "sitemaps",
+var tableNames = map[reflect.Type]string{
+	reflect.TypeOf(nil):                          "canva_templates",
+	reflect.TypeOf(researcher.BusinessSummary{}): "businessSummaries",
+	reflect.TypeOf([]researcher.SitemapUrl{}):    "sitemaps",
 }
 
 var rpcMethods = map[RpcMethod]string{
@@ -28,20 +29,71 @@ var rpcMethods = map[RpcMethod]string{
 }
 
 type Storage interface {
-	StoreBusinessSummary(userId string, businessSummary types.BusinessSummary) error
-	GetBusinessSummary(userId string) (types.StoredBusinessSummary, error)
-	UpdateBusinessSummary(userId string, updateFields map[string]interface{}) error
-	StoreSitemap(userId string, urls []string, embeddings []types.Vector) error
-	GetSitemap(userId string) ([]types.StoredSitemapUrl, error)
-	GetNearestTemplate(types.Vector) (*types.NearestTemplateResponse, error)
-	GetNearestUrl(types.Vector) (string, error)
-	GetRandomUrls(string, int) ([]string, error)
-	GetRandomTemplates(int) ([]types.NearestTemplateResponse, error)
+	store(table string, data interface{}) (interface{}, error)
+	storeAll(table string, data []interface{}) ([]interface{}, error)
 
-	Store(table TableName, data interface{}) (interface{}, error)
-	Get(table TableName, id string) (interface{}, error)
-	GetRandom(table TableName, limit int) ([]interface{}, error)
-	Update(table TableName, id string, updateFields map[string]interface{}) (interface{}, error)
+	get(table string, id string) (interface{}, error)
+	getRandom(table string, limit int) ([]interface{}, error)
+
+	update(table string, id string, updateFields map[string]interface{}) (interface{}, error)
 
 	Rpc(method RpcMethod, payload map[string]interface{}) (interface{}, error)
+}
+
+func Get[T any](storage *Storage, id string) (*T, error) {
+	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
+	table, ok := tableNames[typeOfT]
+	if !ok {
+		return nil, fmt.Errorf("table not found for type %v", typeOfT)
+	}
+
+	data, err := (*storage).get(table, id)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := data.(T)
+	return &ret, nil
+}
+
+func GetRandom[T any](storage *Storage, limit int) ([]T, error) {
+	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
+	table, ok := tableNames[typeOfT]
+	if !ok {
+		return nil, fmt.Errorf("table not found for type %v", typeOfT)
+	}
+
+	data, err := (*storage).getRandom(table, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]T, len(data))
+	for i, d := range data {
+		ret[i] = d.(T)
+	}
+
+	return ret, nil
+}
+
+func Store[T any](storage *Storage, data T) error {
+	typeOfT := reflect.TypeOf(data)
+	table, ok := tableNames[typeOfT]
+	if !ok {
+		return fmt.Errorf("table not found for type %v", typeOfT)
+	}
+
+	_, err := (*storage).store(table, data)
+	return err
+}
+
+func Update[T any](storage *Storage, id string, updateFields map[string]interface{}) error {
+	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
+	table, ok := tableNames[typeOfT]
+	if !ok {
+		return fmt.Errorf("table not found for type %v", typeOfT)
+	}
+
+	_, err := (*storage).update(table, id, updateFields)
+	return err
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"image/color"
 	"io"
 	"math"
 	"net/http"
@@ -25,37 +24,6 @@ const (
 
 func Round2Dec(val float64) float64 {
 	return math.Round(val*100) / 100
-}
-
-func ExtractJsonObj(jsonString string, b BracketType) string {
-	// Remove all newline characters from the input string
-	jsonString = strings.ReplaceAll(jsonString, "\n", "")
-
-	// Get the opening and closing brackets for the specific type
-	open, close := getBrackets(b)
-
-	// Find the start index of the opening bracket
-	start := strings.Index(jsonString, open)
-	if start == -1 {
-		return ""
-	}
-
-	// Find the last index of the closing bracket
-	end := strings.LastIndex(jsonString, close)
-	if end == -1 || end <= start {
-		return ""
-	}
-
-	// Return the substring containing the JSON object
-	return jsonString[start : end+1]
-}
-
-func getBrackets(b BracketType) (string, string) {
-	if b == SquareBracket {
-		return "[", "]"
-	}
-
-	return "{", "}"
 }
 
 func RemoveDuplicates(input []string) []string {
@@ -134,25 +102,6 @@ func CleanText(text string) string {
 	text = strings.Join(strings.Fields(text), " ")
 
 	return text
-}
-
-func StringifyWebsiteData(data types.WebsiteData) string {
-	var sb strings.Builder
-
-	sb.WriteString(fmt.Sprintf("Title: %s\n", data.Title))
-	sb.WriteString(fmt.Sprintf("Meta Description: %s\n", data.MetaDescription))
-
-	sb.WriteString("Headings:\n")
-	for key, values := range data.Headings {
-		sb.WriteString(fmt.Sprintf("  %s: %s\n", key, strings.Join(values, ", ")))
-	}
-
-	sb.WriteString(fmt.Sprintf("Keywords: %s\n", data.Keywords))
-	sb.WriteString(fmt.Sprintf("Links: %s\n", strings.Join(data.Links, ", ")))
-	sb.WriteString(fmt.Sprintf("Summary: %s\n", data.Summary))
-	sb.WriteString(fmt.Sprintf("Categories: %s\n", strings.Join(data.Categories, ", ")))
-
-	return sb.String()
 }
 
 func FirstNumberInString(s string) (int, error) {
@@ -237,4 +186,72 @@ func parseJSONTag(tag string) string {
 		return tag[:commaIndex]
 	}
 	return tag
+}
+
+// TODO: MAKE THIS TAKE INTO CONSIDERATION THE PROMPT OF THE IMAGE FIELD BEFORE POPULATING (types.TemplateField.description)
+func PickBestImages(candidateImages []string, campaignInfo string, imageFields []types.PopulatedField, llmClient *LLMClient) ([]string, error) {
+	bestImagesWg := sync.WaitGroup{}
+
+	if len(candidateImages) > 50 {
+		return nil, fmt.Errorf("> 50 candidate images")
+	}
+
+	if len(candidateImages) == 0 {
+		return nil, fmt.Errorf("no candidate images supplied")
+	}
+
+	type BestImagePair struct {
+		fieldIndex     int
+		bestImageIndex int
+	}
+
+	bestImagePairChan := make(chan BestImagePair, len(imageFields))
+	bestImagesWg.Add(len(imageFields))
+
+	for i, field := range imageFields {
+		prompt := prompts.PickBestImagePrompt(campaignInfo, field)
+		go func(prompt string, i int) {
+			defer bestImagesWg.Done()
+
+			bestImage, err := llmClient.OpenaiImageCompletion(prompt, candidateImages, openai.GPT4o)
+			if err != nil {
+				log.Printf("Error getitng openai image completion: %v", err)
+				log.Printf("candidate images: %v", candidateImages)
+				bestImagePairChan <- BestImagePair{i, 0}
+				return
+			}
+
+			index, err := FirstNumberInString(bestImage)
+			if err != nil {
+				log.Printf("Error converting number to string: %v", err)
+				bestImagePairChan <- BestImagePair{i, 0}
+			}
+			bestImagePairChan <- BestImagePair{i, index}
+		}(prompt, i)
+	}
+
+	bestImagesWg.Wait()
+	close(bestImagePairChan)
+
+	bestImages := make([]string, len(imageFields))
+	for pair := range bestImagePairChan {
+		bestImages[pair.fieldIndex] = candidateImages[pair.bestImageIndex]
+	}
+
+	return bestImages, nil
+}
+
+func IsValidImageURL(url string) bool {
+	if !strings.HasPrefix(url, "http") {
+		return false
+	}
+
+	// Common image file extensions
+	validExtensions := []string{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
+	for _, ext := range validExtensions {
+		if strings.HasSuffix(strings.ToLower(url), ext) {
+			return true
+		}
+	}
+	return false
 }
