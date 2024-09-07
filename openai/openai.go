@@ -3,19 +3,33 @@ package openai
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/sashabaranov/go-openai"
 )
 
 type OpenaiClient struct {
 	openaiClient *openai.Client
+	usageCh      chan openai.Usage
 }
 
 func NewOpenaiClient(apiKey string) *OpenaiClient {
-	openaiClient := openai.NewClient(apiKey)
+	var (
+		openaiClient = openai.NewClient(apiKey)
+		usageCh      = make(chan openai.Usage)
+	)
+
+	go UsageLoop(usageCh)
 
 	return &OpenaiClient{
 		openaiClient: openaiClient,
+		usageCh:      usageCh,
+	}
+}
+
+func UsageLoop(usageCh chan openai.Usage) {
+	for usage := range usageCh {
+		slog.Info("Openai Usage", "prompt_tokens", usage.PromptTokens, "completion_tokens", usage.CompletionTokens, "total_tokens", usage.TotalTokens)
 	}
 }
 
@@ -37,6 +51,7 @@ func (oc *OpenaiClient) ChatCompletion(ctx context.Context, prompt string, model
 		return "", err
 	}
 
+	oc.usageCh <- resp.Usage
 	return resp.Choices[0].Message.Content, nil
 }
 
@@ -75,6 +90,7 @@ func (oc *OpenaiClient) ImageCompletion(ctx context.Context, prompt string, imag
 		return "", err
 	}
 
+	oc.usageCh <- resp.Usage
 	return resp.Choices[0].Message.Content, nil
 }
 
@@ -96,5 +112,6 @@ func (oc *OpenaiClient) Embeddings(urls []string) ([][]float32, error) {
 		embeddings = append(embeddings, embedding.Embedding)
 	}
 
+	oc.usageCh <- queryResponse.Usage
 	return embeddings, nil
 }
