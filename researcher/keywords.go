@@ -1,39 +1,32 @@
-package services
+package researcher
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/url"
-	"strings"
 	"sync"
 )
 
-func (sc *ServicesClient) GoogleAdsKeywordsData(keywords []string) ([]GoogleAdsKeyword, error) {
-	queryKeywords := []string{}
-
-	for _, keyword := range keywords {
-		queryKeywords = append(queryKeywords, url.QueryEscape(keyword))
-	}
-
-	keywordsStr := strings.Join(queryKeywords, ",")
-
-	resp, err := sc.httpClient.Get(GoogleAdsUrl + keywordsStr)
-
+func (r *Researcher) GoogleAdsKeywordsData(keywords []string) ([]GoogleAdsKeyword, error) {
+	googleAdsKeywordResponses, err := r.servicesClient.GoogleAdsKeywordsData(keywords)
 	if err != nil {
 		return nil, err
 	}
 
-	defer resp.Body.Close()
-
-	var response GoogleAdsResponse
-	err = json.NewDecoder(resp.Body).Decode(&response)
-	if err != nil {
-		return nil, err
+	googleAdsKeywords := []GoogleAdsKeyword{}
+	for _, keyword := range googleAdsKeywordResponses {
+		googleAdsKeywords = append(googleAdsKeywords, GoogleAdsKeyword{
+			Keyword:            keyword.Keyword,
+			AvgMonthlySearches: keyword.AvgMonthlySearches,
+			CompetitionLevel:   keyword.CompetitionLevel,
+			CompetitionIndex:   keyword.CompetitionIndex,
+			LowTopOfPageBid:    keyword.LowTopOfPageBid,
+			HighTopOfPageBid:   keyword.HighTopOfPageBid,
+		})
 	}
-	return response.Keywords, nil
+
+	return googleAdsKeywords, nil
 }
 
-func (sc *ServicesClient) OptimalKeywords(keywords []GoogleAdsKeyword) (string, string, error) {
+func (r *Researcher) OptimalKeywords(keywords []GoogleAdsKeyword) (string, string, error) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(keywords))
 
@@ -43,7 +36,7 @@ func (sc *ServicesClient) OptimalKeywords(keywords []GoogleAdsKeyword) (string, 
 	for _, keyword := range keywords {
 		go func(keyword GoogleAdsKeyword) {
 			defer wg.Done()
-			volume, err := sc.searchResults(keyword.Keyword)
+			volume, err := r.servicesClient.NumberOfSearchResultsFor(keyword.Keyword)
 
 			if err == nil {
 				ch <- map[string]int{keyword.Keyword: volume}
@@ -79,26 +72,6 @@ func (sc *ServicesClient) OptimalKeywords(keywords []GoogleAdsKeyword) (string, 
 	primaryKeyword, secondaryKeyword := getOptimalKeyword(keywordSearchResults, filteredKeywords)
 
 	return primaryKeyword, secondaryKeyword, nil
-}
-
-func (sc *ServicesClient) searchResults(keyword string) (int, error) {
-	k := url.QueryEscape(keyword)
-	resp, err := sc.httpClient.Get(SearchResultsUrl + k)
-
-	if err != nil {
-		return -1, err
-	}
-
-	defer resp.Body.Close()
-
-	var response SearchResultsResponse
-	err = json.NewDecoder(resp.Body).Decode(&response)
-
-	if err != nil {
-		return -1, err
-	}
-
-	return response.SearchResults, nil
 }
 
 func getOptimalKeyword(keywordSearchResults map[string]int, keywords []GoogleAdsKeyword) (primaryKeyword string, secondaryKeyword string) {

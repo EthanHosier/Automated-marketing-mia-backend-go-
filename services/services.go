@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -134,4 +135,49 @@ func (sc *ServicesClient) PageContentsScrape(url string) (*BodyContentsScrapeRes
 	}
 
 	return &response, nil
+}
+
+func (sc *ServicesClient) GoogleAdsKeywordsData(keywords []string) ([]GoogleAdsKeywordResponse, error) {
+	queryKeywords := []string{}
+
+	for _, keyword := range keywords {
+		queryKeywords = append(queryKeywords, url.QueryEscape(keyword))
+	}
+
+	keywordsStr := strings.Join(queryKeywords, ",")
+
+	resp, err := sc.httpClient.Get(GoogleAdsUrl + keywordsStr)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var response GoogleAdsResponse
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		return nil, err
+	}
+	return response.Keywords, nil
+}
+
+func (sc *ServicesClient) NumberOfSearchResultsFor(keyword string) (int, error) {
+	k := url.QueryEscape(keyword)
+	resp, err := sc.httpClient.Get(SearchResultsUrl + k)
+
+	if err != nil {
+		return -1, err
+	}
+
+	defer resp.Body.Close()
+
+	var response SearchResultsResponse
+	err = json.NewDecoder(resp.Body).Decode(&response)
+
+	if err != nil {
+		return -1, err
+	}
+
+	return response.SearchResults, nil
 }

@@ -18,3 +18,12 @@ type PageContents struct {
 	ImageUrls    []string             `json:"image_urls"`
 	Url          string               `json:"url"`
 }
+
+type GoogleAdsKeyword struct {
+	Keyword            string `json:"keyword"`
+	AvgMonthlySearches int    `json:"avg_monthly_searches"`
+	CompetitionLevel   string `json:"competition_level"`
+	CompetitionIndex   int    `json:"competition_index"`
+	LowTopOfPageBid    int    `json:"low_top_of_page_bid"`
+	HighTopOfPageBid   int    `json:"high_top_of_page_bid"`
+}

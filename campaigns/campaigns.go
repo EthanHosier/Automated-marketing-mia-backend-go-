@@ -7,7 +7,6 @@ import (
 	"github.com/ethanhosier/mia-backend-go/openai"
 	"github.com/ethanhosier/mia-backend-go/researcher"
 	"github.com/ethanhosier/mia-backend-go/storage"
-	"github.com/ethanhosier/mia-backend-go/types"
 	"github.com/ethanhosier/mia-backend-go/utils"
 )
 
@@ -89,7 +88,30 @@ func (c *CampaignClient) getCandidatePageContentsForUser(userID string, n int) (
 func (c *CampaignClient) generateThemes(pageContents []researcher.PageContents, businessSummary *researcher.BusinessSummary) ([]CampaignTheme, error) {
 	themePrompt := fmt.Sprintf(openai.ThemeGenerationPrompt, businessSummary, pageContents, businessSummary.TargetRegion, "", "")
 
-	return utils.Retry(retryAttempts, func() ([]CampaignTheme, error) {
+	themesWithSuggestedKeywords, err := utils.Retry(retryAttempts, func() ([]themeWithSuggestedKeywords, error) {
 		return c.themes(themePrompt)
 	})
+
+	if err != nil {
+		return nil, err
+	}
+}
+
+func (c *CampaignClient) themesWithChosenKeywords(themesWithSuggestedKeywords []themeWithSuggestedKeywords) ([]CampaignTheme, error) {
+	campaignThemeCh := make(chan *CampaignTheme, len(themesWithSuggestedKeywords))
+	errorCh := make(chan error, len(themesWithSuggestedKeywords))
+
+	for _, t := range themesWithSuggestedKeywords {
+
+	}
+}
+
+func (c *CampaignClient) chosenKeywords(keywords []string) (string, string, error) {
+	adsKeywords, err := c.researcher.GoogleAdsKeywordsData(keywords)
+
+	if err != nil {
+		return "", "", fmt.Errorf("error getting Google Ads data: %w", err)
+	}
+
+	return c.researcher.OptimalKeywords(adsKeywords)
 }

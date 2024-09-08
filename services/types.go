@@ -49,7 +49,7 @@ type SinglePageBodyTextScraperResponse struct {
 	Url     string `json:"url"`
 }
 
-type GoogleAdsKeyword struct {
+type GoogleAdsKeywordResponse struct {
 	Keyword            string `json:"keyword"`
 	AvgMonthlySearches int    `json:"avg_monthly_searches"`
 	CompetitionLevel   string `json:"competition_level"`
@@ -59,7 +59,7 @@ type GoogleAdsKeyword struct {
 }
 
 type GoogleAdsResponse struct {
-	Keywords []GoogleAdsKeyword `json:"keywords"`
+	Keywords []GoogleAdsKeywordResponse `json:"keywords"`
 }
 
 type SearchResultsResponse struct {
