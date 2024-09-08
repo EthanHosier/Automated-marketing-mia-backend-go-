@@ -95,15 +95,55 @@ func (c *CampaignClient) generateThemes(pageContents []researcher.PageContents, 
 	if err != nil {
 		return nil, err
 	}
+
+	return c.themesWithChosenKeywords(themesWithSuggestedKeywords)
 }
 
 func (c *CampaignClient) themesWithChosenKeywords(themesWithSuggestedKeywords []themeWithSuggestedKeywords) ([]CampaignTheme, error) {
+
 	campaignThemeCh := make(chan *CampaignTheme, len(themesWithSuggestedKeywords))
 	errorCh := make(chan error, len(themesWithSuggestedKeywords))
 
-	for _, t := range themesWithSuggestedKeywords {
+	themeWithKeywordsWg := sync.WaitGroup{}
+	themeWithKeywordsWg.Add(len(themesWithSuggestedKeywords))
 
+	for _, t := range themesWithSuggestedKeywords {
+		go func(t themeWithSuggestedKeywords) {
+			defer themeWithKeywordsWg.Done()
+
+			primaryKeyword, secondaryKeyword, err := c.chosenKeywords(t.Keywords)
+			if err != nil {
+				errorCh <- err
+				return
+			}
+
+			campaignThemeCh <- &CampaignTheme{
+				Theme:                         t.Theme,
+				PrimaryKeyword:                primaryKeyword,
+				SecondaryKeyword:              secondaryKeyword,
+				Url:                           t.Url,
+				SelectedUrl:                   t.SelectedUrl,
+				ImageCanvaTemplateDescription: t.ImageCanvaTemplateDescription,
+			}
+		}(t)
 	}
+
+	themeWithKeywordsWg.Wait()
+	close(campaignThemeCh)
+	close(errorCh)
+
+	select {
+	case err := <-errorCh:
+		return nil, err
+	default:
+	}
+
+	campaignThemes := []CampaignTheme{}
+	for ct := range campaignThemeCh {
+		campaignThemes = append(campaignThemes, *ct)
+	}
+
+	return campaignThemes, nil
 }
 
 func (c *CampaignClient) chosenKeywords(keywords []string) (string, string, error) {
