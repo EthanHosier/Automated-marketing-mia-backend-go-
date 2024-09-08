@@ -19,7 +19,7 @@ const (
 var tableNames = map[reflect.Type]string{
 	reflect.TypeOf(nil):                          "canva_templates",
 	reflect.TypeOf(researcher.BusinessSummary{}): "businessSummaries",
-	reflect.TypeOf([]researcher.SitemapUrl{}):    "sitemaps",
+	reflect.TypeOf(researcher.SitemapUrl):        "sitemaps", // change this to have the actual sitemap info stuff
 }
 
 var rpcMethods = map[RpcMethod]string{
@@ -34,6 +34,7 @@ type Storage interface {
 
 	get(table string, id string) (interface{}, error)
 	getRandom(table string, limit int) ([]interface{}, error)
+	// todo: getAll with map[string]interface{} which returns all rows matching these fields
 
 	update(table string, id string, updateFields map[string]interface{}) (interface{}, error)
 

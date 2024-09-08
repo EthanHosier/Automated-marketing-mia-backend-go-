@@ -91,6 +91,19 @@ func (r *Researcher) ColorsFromUrl(url string) ([]string, error) {
 	return colors, nil
 }
 
+func (r *Researcher) PageContentsFor(url string) (*PageContents, error) {
+	contents, err := r.servicesClient.PageContentsScrape(url)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PageContents{
+		TextContents: contents.Contents,
+		ImageUrls:    contents.ImageUrls,
+		Url:          contents.Url,
+	}, nil
+}
+
 func (r *Researcher) scrapeWebsitePages(urls []string) ([]string, []string, error) {
 	n := len(urls)
 

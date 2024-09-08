@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"unicode"
@@ -254,4 +255,26 @@ func IsValidImageURL(url string) bool {
 		}
 	}
 	return false
+}
+
+type RetryFunc[T any] func() (T, error)
+
+func Retry[T any](attempts int, fn RetryFunc[T]) (T, error) {
+	var (
+		err    error
+		result T
+	)
+
+	fnName := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
+
+	for i := 0; i < attempts; i++ {
+		fmt.Printf("Attempt %d: Calling function %s\n", i+1, fnName)
+		result, err = fn()
+		if err == nil {
+			return result, nil
+		}
+		fmt.Printf("Attempt %d failed with error: %v\n", i+1, err)
+	}
+
+	return result, err
 }
