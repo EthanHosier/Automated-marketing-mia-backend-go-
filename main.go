@@ -43,7 +43,3 @@ import ()
 // 	supabaseServiceKey := os.Getenv("SUPABASE_SERVICE_KEY")
 // 	return supa.CreateClient(supabaseUrl, supabaseServiceKey)
 // }
-
-func main() {
-
-}

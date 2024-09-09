@@ -30,7 +30,7 @@ type CanvaClient struct {
 	mu             sync.Mutex
 }
 
-func New(clientID string, clientSecret string, tokensFilePath string, httpClient *http.Client) *CanvaClient {
+func NewClient(clientID string, clientSecret string, tokensFilePath string, httpClient *http.Client) *CanvaClient {
 	canvaClient := CanvaClient{
 		clientID:       clientID,
 		clientSecret:   clientSecret,

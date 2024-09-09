@@ -19,7 +19,7 @@ func NewOpenaiClient(apiKey string) *OpenaiClient {
 		usageCh      = make(chan openai.Usage)
 	)
 
-	go UsageLoop(usageCh)
+	go usageLoop(usageCh)
 
 	return &OpenaiClient{
 		openaiClient: openaiClient,
@@ -27,7 +27,7 @@ func NewOpenaiClient(apiKey string) *OpenaiClient {
 	}
 }
 
-func UsageLoop(usageCh chan openai.Usage) {
+func usageLoop(usageCh chan openai.Usage) {
 	for usage := range usageCh {
 		slog.Info("Openai request completed", "prompt_tokens", usage.PromptTokens, "completion_tokens", usage.CompletionTokens, "total_tokens", usage.TotalTokens)
 	}

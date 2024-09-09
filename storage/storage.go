@@ -10,6 +10,7 @@ import (
 type TableName int
 type RpcMethod int
 
+// TODO: abstract this RPC logic away into the actual get functions themselves
 const (
 	NEAREST_TEMPLATE RpcMethod = iota
 	NEAREST_URL
@@ -37,8 +38,6 @@ type Storage interface {
 	// todo: getAll with map[string]interface{} which returns all rows matching these fields
 
 	update(table string, id string, updateFields map[string]interface{}) (interface{}, error)
-
-	Rpc(method RpcMethod, payload map[string]interface{}) (interface{}, error)
 }
 
 func Get[T any](storage *Storage, id string) (*T, error) {
