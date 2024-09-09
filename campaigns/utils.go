@@ -29,7 +29,7 @@ func (c *CampaignClient) themes(themePrompt string) ([]themeWithSuggestedKeyword
 	extractedArr := openai.ExtractJsonData(completion, openai.JSONArray)
 
 	var themes []themeWithSuggestedKeywords
-	err = json.Unmarshal([]byte(extractedArr), themes)
+	err = json.Unmarshal([]byte(extractedArr), &themes)
 	if err != nil {
 		return nil, err
 	}

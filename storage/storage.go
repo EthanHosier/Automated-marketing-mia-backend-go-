@@ -19,7 +19,7 @@ const (
 var tableNames = map[reflect.Type]string{
 	reflect.TypeOf(Template{}):                   "canva_templates",
 	reflect.TypeOf(researcher.BusinessSummary{}): "businessSummaries",
-	reflect.TypeOf(researcher.SitemapUrl):        "sitemaps", // change this to have the actual sitemap info stuff
+	// reflect.TypeOf(researcher.SitemapUrl):        "sitemaps", // change this to have the actual sitemap info stuff
 }
 
 var rpcMethods = map[RpcMethod]string{

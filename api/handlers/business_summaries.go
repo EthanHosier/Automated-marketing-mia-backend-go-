@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethanhosier/mia-backend-go/researcher"
 	"github.com/ethanhosier/mia-backend-go/storage"
-	"github.com/ethanhosier/mia-backend-go/types"
 	"github.com/ethanhosier/mia-backend-go/utils"
 )
 
@@ -19,13 +18,13 @@ func BusinessSummaries(store *storage.Storage, researcher *researcher.Researcher
 			return
 		}
 
-		var req types.BusinessSummariesRequest
+		var req BusinessSummariesRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		if err := types.ValidateBusinessSummariesRequest(req); err != nil {
+		if err := validateBusinessSummariesRequest(req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

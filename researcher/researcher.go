@@ -173,7 +173,7 @@ func (r *Researcher) SocialMediaPostsFor(keyword string) ([]SocialMediaPost, err
 }
 
 func (r *Researcher) ResearchReportFor(keyword string, platform SocialMediaPlatform) (string, error) {
-	socialMediaPosts, err := r.SocialMediaPostsFor(keyword, platform)
+	socialMediaPosts, err := r.SocialMediaPostsForPlatform(keyword, platform)
 	if err != nil {
 		return "", err
 	}

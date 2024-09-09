@@ -35,7 +35,7 @@ func (s *Server) routes() {
 
 	s.router.HandleFunc("GET /sitemap", handlers.GetSitemap(s.store))
 
-	s.router.HandleFunc("POST /campaigns", handlers.GenerateCampaigns(s.store, s.llmClient))
+	// s.router.HandleFunc("POST /campaigns", handlers.GenerateCampaigns(s.store, s.llmClient))
 }
 
 func (s *Server) Start() error {

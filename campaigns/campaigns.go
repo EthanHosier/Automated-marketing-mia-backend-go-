@@ -3,6 +3,7 @@ package campaigns
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/ethanhosier/mia-backend-go/canva"
@@ -254,7 +255,8 @@ func (c *CampaignClient) bestImage(imageDescription string, candidateImages []st
 }
 
 func (c *CampaignClient) getCandidatePageContentsForUser(userID string, n int) ([]researcher.PageContents, error) {
-	randomUrls, err := storage.GetRandom[researcher.Sitemap](c.storage, n)
+	// randomUrls, err := storage.GetRandom[researcher.Sitemap](c.storage, n)
+	randomUrls, err := []string{}, errors.New("NOT IMPLEMENTED")
 	if err != nil {
 		return nil, err
 	}
