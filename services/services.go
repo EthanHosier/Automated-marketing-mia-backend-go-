@@ -100,6 +100,23 @@ func (sc *ServicesClient) ScrapeSinglePageHtml(url string) (string, error) {
 	return string(body), nil
 }
 
+func (sc *ServicesClient) ScrapeSinglePageBodyText(url string) (string, error) {
+	resp, err := http.Get(SinglePageBodyTextScraperUrl + url)
+	if err != nil {
+		return "", err
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var response SinglePageBodyTextScraperResponse
+	err = json.Unmarshal(body, &response)
+
+	return response.Content, err
+}
+
 func (sc *ServicesClient) ScrapeBusiness(url string) ([]string, error) {
 	resp, err := http.Get(BusinessScraperUrl + "?url=" + url + "&timeout=" + fmt.Sprintf("%d", businessScrapeTimeout))
 	if err != nil {
@@ -180,4 +197,21 @@ func (sc *ServicesClient) NumberOfSearchResultsFor(keyword string) (int, error) 
 	}
 
 	return response.SearchResults, nil
+}
+
+func (sc *ServicesClient) ScrapeSocialMediaFrom(keyword string, platform string, limit int) (*SocialMediaFromKeywordResponse, error) {
+	resp, err := sc.httpClient.Get(SocialMediaFromKeywordScraperUrl + "?keyword=" + url.QueryEscape(keyword) + "&platform=" + platform + "&maxResults=" + string(limit))
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var response SocialMediaFromKeywordResponse
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
 }

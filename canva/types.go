@@ -75,16 +75,16 @@ type Thumbnail struct {
 }
 
 type ImageField struct {
-	name    string
-	assetId string
+	Name    string
+	AssetId string
 }
 
 type TextField struct {
-	name string
-	text string
+	Name string
+	Text string
 }
 
 type ColorField struct {
-	name  string
-	color string
+	Name         string
+	ColorAssetId string
 }

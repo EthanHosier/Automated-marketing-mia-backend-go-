@@ -27,3 +27,21 @@ type GoogleAdsKeyword struct {
 	LowTopOfPageBid    int    `json:"low_top_of_page_bid"`
 	HighTopOfPageBid   int    `json:"high_top_of_page_bid"`
 }
+
+type SocialMediaPost struct {
+	Platform SocialMediaPlatform `json:"platform"`
+	Content  string              `json:"content"`
+	Hashtags []string            `json:"hashtags"`
+	Url      string              `json:"url"`
+	Keyword  string              `json:"keyword"`
+}
+
+type SocialMediaPlatform string
+
+const (
+	Instagram SocialMediaPlatform = "instagram"
+	Facebook  SocialMediaPlatform = "facebook"
+	LinkedIn  SocialMediaPlatform = "linkedIn"
+	Google    SocialMediaPlatform = "google"
+	News      SocialMediaPlatform = "news"
+)

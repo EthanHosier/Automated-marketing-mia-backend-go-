@@ -58,7 +58,7 @@ func (c *CanvaClient) loadTokens() (*Tokens, error) {
 }
 
 // todo: make this a read write lock???
-func (c *CanvaClient) AccessToken() (string, error) {
+func (c *CanvaClient) accessToken() (string, error) {
 	c.mu.Lock()
 
 	tokens, err := c.loadTokens()
@@ -194,7 +194,7 @@ func (c *CanvaClient) PopulateTemplate(ID string, imageFields []ImageField, text
 }
 
 func (c *CanvaClient) sendAutofillRequest(requestData map[string]interface{}) (*http.Response, error) {
-	accessToken, err := c.AccessToken()
+	accessToken, err := c.accessToken()
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +243,7 @@ func (c *CanvaClient) decodeUpdateTemplateJobResult(jobID string) (*UpdateTempla
 
 		}
 
-		accessToken, err := c.AccessToken()
+		accessToken, err := c.accessToken()
 		if err != nil {
 			return nil, err
 		}
@@ -299,7 +299,7 @@ func (c *CanvaClient) sendUploadAssetRequest(asset []byte, name string) (*http.R
 		return nil, fmt.Errorf("error marshalling metadata: %v", err)
 	}
 
-	accessToken, err := c.AccessToken()
+	accessToken, err := c.accessToken()
 	if err != nil {
 		return nil, fmt.Errorf("error getting access token: %v", err)
 	}
@@ -340,7 +340,7 @@ func (c *CanvaClient) decodeUploadAssetResponse(resp *http.Response) (*Asset, er
 			return nil, fmt.Errorf("error creating request: %v", err)
 		}
 
-		accessToken, err := c.AccessToken()
+		accessToken, err := c.accessToken()
 		if err != nil {
 			return nil, err
 		}

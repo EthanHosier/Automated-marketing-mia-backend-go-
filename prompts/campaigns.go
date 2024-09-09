@@ -209,7 +209,7 @@ I am going to give you a list of image urls. You need to select the best image f
 This is some info about image you must select:
 %+v
 
-Here is the list of image:
+Here is the list of images:
 `
 )
 

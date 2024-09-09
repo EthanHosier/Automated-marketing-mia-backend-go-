@@ -65,3 +65,14 @@ type GoogleAdsResponse struct {
 type SearchResultsResponse struct {
 	SearchResults int `json:"searchResults"`
 }
+
+type SocialMediaFromKeywordPostResponse struct {
+	Content  string   `json:"content"`
+	Hashtags []string `json:"hashtags"`
+	Url      string   `json:"url"`
+}
+
+type SocialMediaFromKeywordResponse struct {
+	Posts    []SocialMediaFromKeywordPostResponse `json:"posts"`
+	Platform string                               `json:"platform"`
+}

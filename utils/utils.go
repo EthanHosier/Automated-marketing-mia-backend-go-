@@ -278,3 +278,42 @@ func Retry[T any](attempts int, fn RetryFunc[T]) (T, error) {
 
 	return result, err
 }
+
+type Task[T any] struct {
+	ch      chan T
+	errorCh chan error
+}
+
+func DoAsync[T any](fn func() (T, error)) *Task[T] {
+	ch := make(chan T)
+	errorCh := make(chan error)
+
+	go func() {
+		result, err := fn()
+		if err != nil {
+			errorCh <- err
+			return
+		}
+		ch <- result
+	}()
+
+	return &Task[T]{ch, errorCh}
+}
+
+func GetAsync[T any](task *Task[T]) (T, error) {
+	var zero T // This will initialize `zero` to the zero value for type T
+	select {
+	case result := <-task.ch:
+		return result, nil
+	case err := <-task.errorCh:
+		return zero, err
+	}
+}
+
+func FirstNChars(text string, n int) string {
+	runes := []rune(text) // Convert the string to runes to handle multi-byte characters
+	if len(runes) < n {
+		n = len(runes) // If the string has fewer than n characters, take all
+	}
+	return string(runes[:n]) // Convert the rune slice back to a string
+}

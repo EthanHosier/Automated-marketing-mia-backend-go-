@@ -58,23 +58,23 @@ func populateTemplateInputData(imageFields []ImageField, textFields []TextField,
 	inputData := map[string]map[string]string{}
 
 	for _, field := range imageFields {
-		inputData[field.name] = map[string]string{
+		inputData[field.Name] = map[string]string{
 			"type":     "image",
-			"asset_id": field.assetId,
+			"asset_id": field.AssetId,
 		}
 	}
 
 	for _, field := range textFields {
-		inputData[field.name] = map[string]string{
+		inputData[field.Name] = map[string]string{
 			"type": "text",
-			"text": field.text,
+			"text": field.Text,
 		}
 	}
 
 	for _, field := range colorFields {
-		inputData[field.name] = map[string]string{
+		inputData[field.Name] = map[string]string{
 			"type":     "image",
-			"asset_id": field.color,
+			"asset_id": field.ColorAssetId,
 		}
 	}
 
