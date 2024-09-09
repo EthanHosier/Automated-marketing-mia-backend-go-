@@ -1,6 +1,6 @@
 package main
 
-import "fmt"
+import ()
 
 // import (
 // 	"flag"
@@ -45,5 +45,5 @@ import "fmt"
 // }
 
 func main() {
-	fmt.Println("yeahhh")
+
 }
