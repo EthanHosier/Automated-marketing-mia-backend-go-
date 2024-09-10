@@ -10,7 +10,7 @@ import (
 	"github.com/ethanhosier/mia-backend-go/utils"
 )
 
-func BusinessSummaries(store *storage.Storage, researcher *researcher.Researcher) http.HandlerFunc {
+func BusinessSummaries(store storage.Storage, researcher *researcher.Researcher) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := r.Context().Value(utils.UserIdKey).(string)
 		if !ok {
@@ -45,7 +45,7 @@ func BusinessSummaries(store *storage.Storage, researcher *researcher.Researcher
 	}
 }
 
-func GetBusinessSummaries(store *storage.Storage) http.HandlerFunc {
+func GetBusinessSummaries(store storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		userID, ok := r.Context().Value(utils.UserIdKey).(string)
@@ -64,7 +64,7 @@ func GetBusinessSummaries(store *storage.Storage) http.HandlerFunc {
 	}
 }
 
-func PatchBusinessSummaries(store *storage.Storage) http.HandlerFunc {
+func PatchBusinessSummaries(store storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := r.Context().Value(utils.UserIdKey).(string)
 		if !ok {
@@ -88,7 +88,7 @@ func PatchBusinessSummaries(store *storage.Storage) http.HandlerFunc {
 	}
 }
 
-func alreadyHasSitemapOrBusinessSummary(store *storage.Storage, userID string) bool {
+func alreadyHasSitemapOrBusinessSummary(store storage.Storage, userID string) bool {
 	checkWg := sync.WaitGroup{}
 	checkWg.Add(1)
 

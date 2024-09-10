@@ -10,13 +10,13 @@ import (
 
 type Server struct {
 	listenAddr string
-	store      *storage.Storage
+	store      storage.Storage
 	router     *http.ServeMux
 
 	researcher *researcher.Researcher
 }
 
-func NewServer(listenAddr string, store *storage.Storage, researcher *researcher.Researcher) *Server {
+func NewServer(listenAddr string, store storage.Storage, researcher *researcher.Researcher) *Server {
 	s := &Server{
 		listenAddr: listenAddr,
 		store:      store,

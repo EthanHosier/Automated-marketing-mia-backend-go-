@@ -9,7 +9,7 @@ import (
 	"github.com/ethanhosier/mia-backend-go/utils"
 )
 
-func GetSitemap(store *storage.Storage) http.HandlerFunc {
+func GetSitemap(store storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := r.Context().Value(utils.UserIdKey).(string)
 		if !ok {

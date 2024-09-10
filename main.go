@@ -53,8 +53,8 @@ func main() {
 Order of testing
 1. The helper utils    [X]
 2. The storage         [X]
-3. Openai              []
-2. The services 			 []
+3. Openai              [] (other than openai client: TODO: abstract into interface)
+2. The services 			 [] ^ for services also
 3. Canva 						   []
 4. Researcher 				 []
 5. Campaigns           []

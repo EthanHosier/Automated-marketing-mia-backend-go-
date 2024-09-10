@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -200,7 +201,8 @@ func (sc *ServicesClient) NumberOfSearchResultsFor(keyword string) (int, error) 
 }
 
 func (sc *ServicesClient) ScrapeSocialMediaFrom(keyword string, platform string, limit int) (*SocialMediaFromKeywordResponse, error) {
-	resp, err := sc.httpClient.Get(SocialMediaFromKeywordScraperUrl + "?keyword=" + url.QueryEscape(keyword) + "&platform=" + platform + "&maxResults=" + string(limit))
+	resp, err := sc.httpClient.Get(SocialMediaFromKeywordScraperUrl + "?keyword=" + url.QueryEscape(keyword) + "&platform=" + platform + "&maxResults=" + strconv.Itoa(limit))
+
 	if err != nil {
 		return nil, err
 	}

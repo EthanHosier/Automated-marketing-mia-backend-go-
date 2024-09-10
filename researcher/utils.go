@@ -35,13 +35,13 @@ func countSlashes(u *url.URL) int {
 
 func removeDuplicates(urls []string) []string {
 	uniqueUrls := make(map[string]bool)
-	for _, url := range urls {
-		uniqueUrls[url] = true
-	}
-
 	var result []string
-	for url := range uniqueUrls {
-		result = append(result, url)
+
+	for _, url := range urls {
+		if _, exists := uniqueUrls[url]; !exists {
+			uniqueUrls[url] = true
+			result = append(result, url)
+		}
 	}
 
 	return result
