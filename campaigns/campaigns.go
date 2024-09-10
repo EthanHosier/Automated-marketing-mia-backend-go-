@@ -240,7 +240,7 @@ func (c *CampaignClient) bestImage(imageDescription string, candidateImages []st
 		return "", fmt.Errorf("no candidate images supplied")
 	}
 
-	prompt := fmt.Sprint(openai.PickBestImagePrompt, campaignDetailsStr, imageDescription)
+	prompt := fmt.Sprintf(openai.PickBestImagePrompt, campaignDetailsStr, imageDescription)
 	bestImage, err := c.openaiClient.ImageCompletion(context.TODO(), prompt, candidateImages, openai.GPT4o)
 	if err != nil {
 		return "", err

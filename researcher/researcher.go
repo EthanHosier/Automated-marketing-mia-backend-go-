@@ -195,6 +195,7 @@ func (r *Researcher) ResearchReportFromPosts(posts []SocialMediaPost) (string, e
 	return r.openaiClient.ChatCompletion(context.TODO(), researchReportPrompt, openai.GPT4oMini)
 }
 
+// TODO: use Task and asyncGet abstraction here
 func (r *Researcher) scrapeWebsitePages(urls []string) ([]string, []string, error) {
 	n := len(urls)
 

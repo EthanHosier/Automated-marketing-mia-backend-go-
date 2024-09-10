@@ -1,6 +1,6 @@
 package main
 
-import ()
+import "fmt"
 
 // import (
 // 	"flag"
@@ -43,3 +43,20 @@ import ()
 // 	supabaseServiceKey := os.Getenv("SUPABASE_SERVICE_KEY")
 // 	return supa.CreateClient(supabaseUrl, supabaseServiceKey)
 // }
+
+func main() {
+	fmt.Println("yeahhh")
+}
+
+/*
+
+Order of testing
+1. The helper utils    []
+2. The storage         []
+3. Openai              []
+2. The services 			 []
+3. Canva 						   []
+4. Researcher 				 []
+5. Campaigns           []
+
+*/

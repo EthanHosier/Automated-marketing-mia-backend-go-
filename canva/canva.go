@@ -240,7 +240,6 @@ func (c *CanvaClient) decodeUpdateTemplateJobResult(jobID string) (*UpdateTempla
 		req, err := http.NewRequest("GET", statusURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error creating request: %v", err)
-
 		}
 
 		accessToken, err := c.accessToken()
