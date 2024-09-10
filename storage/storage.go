@@ -40,14 +40,14 @@ type Storage interface {
 	update(table string, id string, updateFields map[string]interface{}) (interface{}, error)
 }
 
-func Get[T any](storage *Storage, id string) (*T, error) {
+func Get[T any](storage Storage, id string) (*T, error) {
 	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
 	table, ok := tableNames[typeOfT]
 	if !ok {
 		return nil, fmt.Errorf("table not found for type %v", typeOfT)
 	}
 
-	data, err := (*storage).get(table, id)
+	data, err := storage.get(table, id)
 	if err != nil {
 		return nil, err
 	}
@@ -56,14 +56,14 @@ func Get[T any](storage *Storage, id string) (*T, error) {
 	return &ret, nil
 }
 
-func GetRandom[T any](storage *Storage, limit int) ([]T, error) {
+func GetRandom[T any](storage Storage, limit int) ([]T, error) {
 	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
 	table, ok := tableNames[typeOfT]
 	if !ok {
 		return nil, fmt.Errorf("table not found for type %v", typeOfT)
 	}
 
-	data, err := (*storage).getRandom(table, limit)
+	data, err := storage.getRandom(table, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -76,24 +76,41 @@ func GetRandom[T any](storage *Storage, limit int) ([]T, error) {
 	return ret, nil
 }
 
-func Store[T any](storage *Storage, data T) error {
+func Store[T any](storage Storage, data T) error {
 	typeOfT := reflect.TypeOf(data)
 	table, ok := tableNames[typeOfT]
 	if !ok {
 		return fmt.Errorf("table not found for type %v", typeOfT)
 	}
 
-	_, err := (*storage).store(table, data)
+	_, err := storage.store(table, data)
 	return err
 }
 
-func Update[T any](storage *Storage, id string, updateFields map[string]interface{}) error {
+func StoreAll[T any](storage Storage, data []T) error {
 	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
 	table, ok := tableNames[typeOfT]
 	if !ok {
 		return fmt.Errorf("table not found for type %v", typeOfT)
 	}
 
-	_, err := (*storage).update(table, id, updateFields)
+	// Convert []T to []interface{}
+	converted := make([]interface{}, len(data))
+	for i, v := range data {
+		converted[i] = v
+	}
+
+	_, err := storage.storeAll(table, converted)
+	return err
+}
+
+func Update[T any](storage Storage, id string, updateFields map[string]interface{}) error {
+	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
+	table, ok := tableNames[typeOfT]
+	if !ok {
+		return fmt.Errorf("table not found for type %v", typeOfT)
+	}
+
+	_, err := storage.update(table, id, updateFields)
 	return err
 }
