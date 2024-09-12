@@ -8,12 +8,18 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-type Openai struct {
+type OpenaiClient interface {
+	ChatCompletion(ctx context.Context, prompt string, model string) (string, error)
+	ImageCompletion(ctx context.Context, prompt string, images []string, model string) (string, error)
+	Embeddings(urls []string) ([][]float32, error)
+}
+
+type GoOpenaiClient struct {
 	client  *openai.Client
 	usageCh chan openai.Usage
 }
 
-func NewOpenaiClient(apiKey string) *Openai {
+func NewOpenaiClient(apiKey string) *GoOpenaiClient {
 	var (
 		openaiClient = openai.NewClient(apiKey)
 		usageCh      = make(chan openai.Usage)
@@ -21,7 +27,7 @@ func NewOpenaiClient(apiKey string) *Openai {
 
 	go usageLoop(usageCh)
 
-	return &Openai{
+	return &GoOpenaiClient{
 		client:  openaiClient,
 		usageCh: usageCh,
 	}
@@ -33,7 +39,7 @@ func usageLoop(usageCh chan openai.Usage) {
 	}
 }
 
-func (oc *Openai) ChatCompletion(ctx context.Context, prompt string, model string) (string, error) {
+func (oc *GoOpenaiClient) ChatCompletion(ctx context.Context, prompt string, model string) (string, error) {
 	resp, err := oc.client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
@@ -55,7 +61,7 @@ func (oc *Openai) ChatCompletion(ctx context.Context, prompt string, model strin
 	return resp.Choices[0].Message.Content, nil
 }
 
-func (oc *Openai) ImageCompletion(ctx context.Context, prompt string, images []string, model string) (string, error) {
+func (oc *GoOpenaiClient) ImageCompletion(ctx context.Context, prompt string, images []string, model string) (string, error) {
 	imageMessages := []openai.ChatCompletionMessage{}
 
 	for _, image := range images {
@@ -94,7 +100,7 @@ func (oc *Openai) ImageCompletion(ctx context.Context, prompt string, images []s
 	return resp.Choices[0].Message.Content, nil
 }
 
-func (oc *Openai) Embeddings(urls []string) ([][]float32, error) {
+func (oc *GoOpenaiClient) Embeddings(urls []string) ([][]float32, error) {
 	queryReq := openai.EmbeddingRequest{
 		Input: urls,
 		Model: openai.SmallEmbedding3,
