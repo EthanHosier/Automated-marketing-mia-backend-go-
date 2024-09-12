@@ -25,6 +25,7 @@ func New(sc *services.ServicesClient, oc openai.OpenaiClient) *Researcher {
 
 	return &Researcher{
 		servicesClient: sc,
+		openaiClient:   oc,
 	}
 }
 
@@ -77,6 +78,7 @@ func (r *Researcher) BusinessSummary(url string) ([]string, *BusinessSummary, []
 
 func (r *Researcher) ColorsFromUrl(url string) ([]string, error) {
 	screenshotBase64, err := r.servicesClient.PageScreenshot(url)
+
 	if err != nil {
 		return nil, fmt.Errorf("error taking screenshot of page: %v", err)
 	}

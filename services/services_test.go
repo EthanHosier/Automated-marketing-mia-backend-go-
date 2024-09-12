@@ -16,7 +16,7 @@ func TestPageScreenshot(t *testing.T) {
 
 	url := "http://example.com"
 	mockScreenshot := `{"screenshot": "mockedScreenshotData"}`
-	mockClient.WillReturnBody(services.ScreenshotUrl+"?url="+url, mockScreenshot)
+	mockClient.WillReturnBody("GET", services.ScreenshotUrl+"?url="+url, mockScreenshot)
 
 	result, err := sc.PageScreenshot(url)
 	if err != nil {
@@ -36,7 +36,7 @@ func TestSitemap(t *testing.T) {
 	url := "http://example.com"
 	timeout := 10
 	mockSitemap := `["http://example.com/page1", "http://example.com/page2"]`
-	mockClient.WillReturnBody(services.SitemapScraperUrl+"?url="+url+"&timeout="+fmt.Sprintf("%d", timeout), mockSitemap)
+	mockClient.WillReturnBody("GET", services.SitemapScraperUrl+"?url="+url+"&timeout="+fmt.Sprintf("%d", timeout), mockSitemap)
 
 	result, err := sc.Sitemap(url, timeout)
 	if err != nil {
@@ -55,7 +55,7 @@ func TestScrapeSinglePageHtml(t *testing.T) {
 
 	url := "http://example.com"
 	mockHtml := "<html><body>mock page content</body></html>"
-	mockClient.WillReturnBody(services.SinglePageHtmlScraperUrl+"?url="+url, mockHtml)
+	mockClient.WillReturnBody("GET", services.SinglePageHtmlScraperUrl+"?url="+url, mockHtml)
 
 	result, err := sc.ScrapeSinglePageHtml(url)
 	if err != nil {
@@ -95,7 +95,7 @@ func TestGoogleAdsKeywordsData(t *testing.T) {
 
 	// Escape the keywords properly for the mock URL
 	ks := "keyword1,keyword2"
-	mockClient.WillReturnBody(services.GoogleAdsUrl+ks, mockResponse)
+	mockClient.WillReturnBody("GET", services.GoogleAdsUrl+ks, mockResponse)
 
 	result, err := sc.GoogleAdsKeywordsData(keywords)
 	if err != nil {
@@ -139,7 +139,7 @@ func TestNumberOfSearchResultsFor(t *testing.T) {
 
 	keyword := "test"
 	mockResponse := `{"SearchResults": 123}`
-	mockClient.WillReturnBody(services.SearchResultsUrl+url.QueryEscape(keyword), mockResponse)
+	mockClient.WillReturnBody("GET", services.SearchResultsUrl+url.QueryEscape(keyword), mockResponse)
 
 	result, err := sc.NumberOfSearchResultsFor(keyword)
 	if err != nil {
@@ -176,6 +176,7 @@ func TestScrapeSocialMediaFrom(t *testing.T) {
 	}`
 
 	mockClient.WillReturnBody(
+		"GET",
 		services.SocialMediaFromKeywordScraperUrl+"?keyword="+url.QueryEscape(keyword)+"&platform="+platform+"&maxResults="+fmt.Sprintf("%d", limit),
 		mockResponse,
 	)
@@ -249,7 +250,7 @@ func TestPageContentsScrape(t *testing.T) {
 	}`
 
 	// Mock the response for the given URL
-	mockClient.WillReturnBody(services.SinglePageContentScraperUrl+testUrl, mockResponse)
+	mockClient.WillReturnBody("GET", services.SinglePageContentScraperUrl+testUrl, mockResponse)
 
 	result, err := sc.PageContentsScrape(testUrl)
 	if err != nil {
@@ -335,7 +336,7 @@ func TestScrapeBusiness(t *testing.T) {
 	testUrl := "http://example.com"
 	mockResponse := `["http://page1.com", "http://page2.com", "http://page3.com"]`
 
-	mockClient.WillReturnBody(services.BusinessScraperUrl+"?url="+testUrl+"&timeout="+fmt.Sprintf("%d", services.BusinessScrapeTimeout), mockResponse)
+	mockClient.WillReturnBody("GET", services.BusinessScraperUrl+"?url="+testUrl+"&timeout="+fmt.Sprintf("%d", services.BusinessScrapeTimeout), mockResponse)
 
 	result, err := sc.ScrapeBusiness(testUrl)
 	if err != nil {
@@ -366,7 +367,7 @@ func TestScrapeSinglePageBodyText(t *testing.T) {
 	testUrl := "http://example.com"
 	mockResponse := `{"content": "This is the body text of the page.", "url": "http://example.com"}`
 
-	mockClient.WillReturnBody(services.SinglePageBodyTextScraperUrl+testUrl, mockResponse)
+	mockClient.WillReturnBody("GET", services.SinglePageBodyTextScraperUrl+testUrl, mockResponse)
 
 	content, err := sc.ScrapeSinglePageBodyText(testUrl)
 	if err != nil {
@@ -385,7 +386,7 @@ func TestPageScreenshot_Error(t *testing.T) {
 	sc := services.NewServicesClient(mockClient)
 
 	url := "http://example.com"
-	mockClient.WillReturnError(url, fmt.Errorf("mock error"))
+	mockClient.WillReturnError("GET", url, fmt.Errorf("mock error"))
 
 	result, err := sc.PageScreenshot(url)
 	if err == nil {
@@ -403,7 +404,7 @@ func TestSitemap_Error(t *testing.T) {
 
 	url := "http://example.com"
 	timeout := 10
-	mockClient.WillReturnError(url, fmt.Errorf("mock error"))
+	mockClient.WillReturnError("GET", url, fmt.Errorf("mock error"))
 
 	result, err := sc.Sitemap(url, timeout)
 	if err == nil {
@@ -420,7 +421,7 @@ func TestScrapeSinglePageHtml_Error(t *testing.T) {
 	sc := services.NewServicesClient(mockClient)
 
 	url := "http://example.com"
-	mockClient.WillReturnError(url, fmt.Errorf("mock error"))
+	mockClient.WillReturnError("GET", url, fmt.Errorf("mock error"))
 
 	result, err := sc.ScrapeSinglePageHtml(url)
 	if err == nil {
@@ -437,7 +438,7 @@ func TestGoogleAdsKeywordsData_Error(t *testing.T) {
 	sc := services.NewServicesClient(mockClient)
 
 	keywords := []string{"keyword1", "keyword2"}
-	mockClient.WillReturnError("", fmt.Errorf("mock error"))
+	mockClient.WillReturnError("GET", "", fmt.Errorf("mock error"))
 
 	result, err := sc.GoogleAdsKeywordsData(keywords)
 	if err == nil {
@@ -457,7 +458,7 @@ func TestNumberOfSearchResultsFor_Error(t *testing.T) {
 	k := url.QueryEscape(keyword)
 
 	expectedErr := fmt.Errorf("mock error")
-	mockClient.WillReturnError(services.SearchResultsUrl+k, expectedErr)
+	mockClient.WillReturnError("GET", services.SearchResultsUrl+k, expectedErr)
 
 	_, err := sc.NumberOfSearchResultsFor(keyword)
 
@@ -477,7 +478,7 @@ func TestScrapeSocialMediaFrom_Error(t *testing.T) {
 
 	url := services.SocialMediaFromKeywordScraperUrl + "?keyword=" + url.QueryEscape(keyword) + "&platform=" + platform + "&maxResults=" + strconv.Itoa(limit)
 	expectedErr := fmt.Errorf("mock error")
-	mockClient.WillReturnError(url, expectedErr)
+	mockClient.WillReturnError("GET", url, expectedErr)
 
 	_, err := sc.ScrapeSocialMediaFrom(keyword, platform, limit)
 	if err != expectedErr {
@@ -491,7 +492,7 @@ func TestPageContentsScrape_Error(t *testing.T) {
 
 	testUrl := "http://example.com"
 	expectedErr := fmt.Errorf("mock error")
-	mockClient.WillReturnError(services.SinglePageContentScraperUrl+testUrl, expectedErr)
+	mockClient.WillReturnError("GET", services.SinglePageContentScraperUrl+testUrl, expectedErr)
 
 	_, err := sc.PageContentsScrape(testUrl)
 	if err != expectedErr {
@@ -506,7 +507,7 @@ func TestScrapeBusiness_Error(t *testing.T) {
 	testUrl := "http://example.com"
 	finalUrl := services.BusinessScraperUrl + "?url=" + testUrl + "&timeout=" + fmt.Sprintf("%d", services.BusinessScrapeTimeout)
 	expectedErr := fmt.Errorf("mock error")
-	mockClient.WillReturnError(finalUrl, expectedErr)
+	mockClient.WillReturnError("GET", finalUrl, expectedErr)
 
 	_, err := sc.ScrapeBusiness(testUrl)
 	if err != expectedErr {
@@ -521,7 +522,7 @@ func TestScrapeSinglePageBodyText_Error(t *testing.T) {
 	testUrl := "http://example.com"
 	url := services.SinglePageBodyTextScraperUrl + testUrl
 	expectedErr := fmt.Errorf("mock error")
-	mockClient.WillReturnError(url, expectedErr)
+	mockClient.WillReturnError("GET", url, expectedErr)
 
 	_, err := sc.ScrapeSinglePageBodyText(testUrl)
 	if err != expectedErr {

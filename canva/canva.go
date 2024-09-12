@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ethanhosier/mia-backend-go/http"
 )
 
 const (
@@ -30,13 +31,13 @@ type CanvaClient interface {
 type CanvaHttpClient struct {
 	clientID     string
 	clientSecret string
-	httpClient   *http.Client // remember to set timeout as requestTimeout in new
+	httpClient   http.Client
 
 	tokensFilePath string
 	mu             sync.Mutex
 }
 
-func NewClient(clientID string, clientSecret string, tokensFilePath string, httpClient *http.Client) *CanvaHttpClient {
+func NewClient(clientID string, clientSecret string, tokensFilePath string, httpClient http.Client) *CanvaHttpClient {
 	canvaClient := CanvaHttpClient{
 		clientID:       clientID,
 		clientSecret:   clientSecret,
@@ -132,7 +133,7 @@ func (c *CanvaHttpClient) sendRefreshAccessTokenRequest(refreshToken string) (*T
 	form.Add("grant_type", "refresh_token")
 	form.Add("refresh_token", refreshToken)
 
-	req, err := http.NewRequest("POST", tokenEndpoint, strings.NewReader(form.Encode()))
+	req, err := c.httpClient.NewRequest("POST", tokenEndpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -141,8 +142,7 @@ func (c *CanvaHttpClient) sendRefreshAccessTokenRequest(refreshToken string) (*T
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.SetBasicAuth(c.clientID, c.clientSecret)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +210,7 @@ func (c *CanvaHttpClient) sendAutofillRequest(requestData map[string]interface{}
 		return nil, fmt.Errorf("error marshalling request data: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", autofillEndpoint, bytes.NewBuffer(jsonData))
+	req, err := c.httpClient.NewRequest("POST", autofillEndpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %v", err)
 

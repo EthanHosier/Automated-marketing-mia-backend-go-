@@ -1,6 +1,8 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // import (
 // 	"flag"
@@ -46,6 +48,7 @@ import "fmt"
 
 func main() {
 	fmt.Println("yeahhh")
+
 }
 
 /*
@@ -56,7 +59,7 @@ Order of testing
 3. Openai              [X] (other than openai client: TODO: abstract into interface)
 2. The services 			 [X] ^ for services also
 3. Canva 						   []
-4. Researcher 				 []
+4. Researcher 				 [X]
 5. Campaigns           []
 
 

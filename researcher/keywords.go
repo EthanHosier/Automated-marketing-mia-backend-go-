@@ -115,7 +115,10 @@ func getOptimalKeyword(keywordSearchResults map[string]int, keywords []GoogleAds
 
 func normalize(x float32, nums []float32) float32 {
 	min, max := minMax(nums)
-	return float32(x-min) / float32(max-min)
+	if min == max {
+		return 0.0
+	}
+	return (x - min) / (max - min)
 }
 
 func minMax(nums []float32) (float32, float32) {

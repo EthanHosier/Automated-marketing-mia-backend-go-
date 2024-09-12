@@ -56,6 +56,7 @@ func (m *MockOpenaiClient) ChatCompletion(ctx context.Context, prompt string, mo
 }
 
 func (m *MockOpenaiClient) ImageCompletion(ctx context.Context, prompt string, images []string, model string) (string, error) {
+
 	key := fmt.Sprintf("%s:%v:%s", prompt, images, model)
 	if err, ok := m.errorMocks["default"]; ok {
 		return "", err
