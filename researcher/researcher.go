@@ -18,10 +18,10 @@ const (
 
 type Researcher struct {
 	servicesClient *services.ServicesClient
-	openaiClient   *openai.OpenaiClient
+	openaiClient   *openai.Openai
 }
 
-func New(sc *services.ServicesClient, oc *openai.OpenaiClient) *Researcher {
+func New(sc *services.ServicesClient, oc *openai.Openai) *Researcher {
 
 	return &Researcher{
 		servicesClient: sc,

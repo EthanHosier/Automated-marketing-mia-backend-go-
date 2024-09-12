@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/ethanhosier/mia-backend-go/http"
 )
 
 const (
@@ -21,14 +22,14 @@ const (
 	SinglePageHtmlScraperUrl         = "https://5s8ecjywfi.execute-api.eu-west-2.amazonaws.com/single-page-html-scraper"
 	SinglePageContentScraperUrl      = "https://1ap5f1w55b.execute-api.eu-west-2.amazonaws.com/single-page-content-scraper?url="
 
-	businessScrapeTimeout = 15
+	BusinessScrapeTimeout = 15
 )
 
 type ServicesClient struct {
-	httpClient *http.Client
+	httpClient http.Client
 }
 
-func NewServicesClient(httpClient *http.Client) *ServicesClient {
+func NewServicesClient(httpClient http.Client) *ServicesClient {
 	return &ServicesClient{
 		httpClient: httpClient,
 	}
@@ -88,7 +89,7 @@ func (sc *ServicesClient) Sitemap(url string, timeout int) ([]string, error) {
 }
 
 func (sc *ServicesClient) ScrapeSinglePageHtml(url string) (string, error) {
-	resp, err := http.Get(SinglePageHtmlScraperUrl + "?url=" + url)
+	resp, err := sc.httpClient.Get(SinglePageHtmlScraperUrl + "?url=" + url)
 	if err != nil {
 		return "", err
 	}
@@ -102,7 +103,7 @@ func (sc *ServicesClient) ScrapeSinglePageHtml(url string) (string, error) {
 }
 
 func (sc *ServicesClient) ScrapeSinglePageBodyText(url string) (string, error) {
-	resp, err := http.Get(SinglePageBodyTextScraperUrl + url)
+	resp, err := sc.httpClient.Get(SinglePageBodyTextScraperUrl + url)
 	if err != nil {
 		return "", err
 	}
@@ -119,7 +120,7 @@ func (sc *ServicesClient) ScrapeSinglePageBodyText(url string) (string, error) {
 }
 
 func (sc *ServicesClient) ScrapeBusiness(url string) ([]string, error) {
-	resp, err := http.Get(BusinessScraperUrl + "?url=" + url + "&timeout=" + fmt.Sprintf("%d", businessScrapeTimeout))
+	resp, err := sc.httpClient.Get(BusinessScraperUrl + "?url=" + url + "&timeout=" + fmt.Sprintf("%d", BusinessScrapeTimeout))
 	if err != nil {
 		return []string{}, err
 	}

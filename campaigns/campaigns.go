@@ -20,13 +20,13 @@ const (
 )
 
 type CampaignClient struct {
-	openaiClient *openai.OpenaiClient
+	openaiClient *openai.Openai
 	researcher   *researcher.Researcher
 	canvaClient  *canva.CanvaClient
 	storage      storage.Storage
 }
 
-func NewCampaignClient(openaiClient *openai.OpenaiClient, researcher *researcher.Researcher, canvaClient *canva.CanvaClient, storage storage.Storage) *CampaignClient {
+func NewCampaignClient(openaiClient *openai.Openai, researcher *researcher.Researcher, canvaClient *canva.CanvaClient, storage storage.Storage) *CampaignClient {
 	return &CampaignClient{
 		openaiClient: openaiClient,
 		researcher:   researcher,

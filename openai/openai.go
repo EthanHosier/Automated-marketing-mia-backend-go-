@@ -8,12 +8,12 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-type OpenaiClient struct {
-	openaiClient *openai.Client
-	usageCh      chan openai.Usage
+type Openai struct {
+	client  *openai.Client
+	usageCh chan openai.Usage
 }
 
-func NewOpenaiClient(apiKey string) *OpenaiClient {
+func NewOpenaiClient(apiKey string) *Openai {
 	var (
 		openaiClient = openai.NewClient(apiKey)
 		usageCh      = make(chan openai.Usage)
@@ -21,9 +21,9 @@ func NewOpenaiClient(apiKey string) *OpenaiClient {
 
 	go usageLoop(usageCh)
 
-	return &OpenaiClient{
-		openaiClient: openaiClient,
-		usageCh:      usageCh,
+	return &Openai{
+		client:  openaiClient,
+		usageCh: usageCh,
 	}
 }
 
@@ -33,8 +33,8 @@ func usageLoop(usageCh chan openai.Usage) {
 	}
 }
 
-func (oc *OpenaiClient) ChatCompletion(ctx context.Context, prompt string, model string) (string, error) {
-	resp, err := oc.openaiClient.CreateChatCompletion(
+func (oc *Openai) ChatCompletion(ctx context.Context, prompt string, model string) (string, error) {
+	resp, err := oc.client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
 			Model: model,
@@ -55,7 +55,7 @@ func (oc *OpenaiClient) ChatCompletion(ctx context.Context, prompt string, model
 	return resp.Choices[0].Message.Content, nil
 }
 
-func (oc *OpenaiClient) ImageCompletion(ctx context.Context, prompt string, images []string, model string) (string, error) {
+func (oc *Openai) ImageCompletion(ctx context.Context, prompt string, images []string, model string) (string, error) {
 	imageMessages := []openai.ChatCompletionMessage{}
 
 	for _, image := range images {
@@ -78,7 +78,7 @@ func (oc *OpenaiClient) ImageCompletion(ctx context.Context, prompt string, imag
 		},
 	}, imageMessages...)
 
-	resp, err := oc.openaiClient.CreateChatCompletion(
+	resp, err := oc.client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
 			Model:    model,
@@ -94,13 +94,13 @@ func (oc *OpenaiClient) ImageCompletion(ctx context.Context, prompt string, imag
 	return resp.Choices[0].Message.Content, nil
 }
 
-func (oc *OpenaiClient) Embeddings(urls []string) ([][]float32, error) {
+func (oc *Openai) Embeddings(urls []string) ([][]float32, error) {
 	queryReq := openai.EmbeddingRequest{
 		Input: urls,
 		Model: openai.SmallEmbedding3,
 	}
 
-	queryResponse, err := oc.openaiClient.CreateEmbeddings(context.Background(), queryReq)
+	queryResponse, err := oc.client.CreateEmbeddings(context.Background(), queryReq)
 	if err != nil {
 		return nil, fmt.Errorf("error creating query embedding: %w", err)
 	}
