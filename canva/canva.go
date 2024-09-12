@@ -21,7 +21,13 @@ const (
 	assetUploadsEndpoint = "https://api.canva.com/rest/v1/asset-uploads"
 )
 
-type CanvaClient struct {
+type CanvaClient interface {
+	PopulateTemplate(ID string, imageFields []ImageField, textFields []TextField, colorFields []ColorField) (*UpdateTemplateResult, error)
+	UploadImageAssets(images []string) ([]string, error)
+	UploadColorAssets(colors []string) ([]string, error)
+}
+
+type CanvaHttpClient struct {
 	clientID     string
 	clientSecret string
 	httpClient   *http.Client // remember to set timeout as requestTimeout in new
@@ -30,8 +36,8 @@ type CanvaClient struct {
 	mu             sync.Mutex
 }
 
-func NewClient(clientID string, clientSecret string, tokensFilePath string, httpClient *http.Client) *CanvaClient {
-	canvaClient := CanvaClient{
+func NewClient(clientID string, clientSecret string, tokensFilePath string, httpClient *http.Client) *CanvaHttpClient {
+	canvaClient := CanvaHttpClient{
 		clientID:       clientID,
 		clientSecret:   clientSecret,
 		httpClient:     httpClient,
@@ -43,7 +49,7 @@ func NewClient(clientID string, clientSecret string, tokensFilePath string, http
 	return &canvaClient
 }
 
-func (c *CanvaClient) loadTokens() (*Tokens, error) {
+func (c *CanvaHttpClient) loadTokens() (*Tokens, error) {
 	file, err := os.ReadFile(c.tokensFilePath)
 	if err != nil {
 		return nil, err
@@ -58,7 +64,7 @@ func (c *CanvaClient) loadTokens() (*Tokens, error) {
 }
 
 // todo: make this a read write lock???
-func (c *CanvaClient) accessToken() (string, error) {
+func (c *CanvaHttpClient) accessToken() (string, error) {
 	c.mu.Lock()
 
 	tokens, err := c.loadTokens()
@@ -76,7 +82,7 @@ func (c *CanvaClient) accessToken() (string, error) {
 	return c.refreshAccessToken()
 }
 
-func (c *CanvaClient) saveTokens(tokens *Tokens) error {
+func (c *CanvaHttpClient) saveTokens(tokens *Tokens) error {
 	data, err := json.MarshalIndent(tokens, "", "  ")
 	if err != nil {
 		return err
@@ -89,7 +95,7 @@ func (c *CanvaClient) saveTokens(tokens *Tokens) error {
 	return nil
 }
 
-func (c *CanvaClient) refreshAccessToken() (string, error) {
+func (c *CanvaHttpClient) refreshAccessToken() (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -121,7 +127,7 @@ func (c *CanvaClient) refreshAccessToken() (string, error) {
 	return newTokens.AccessToken, nil
 }
 
-func (c *CanvaClient) sendRefreshAccessTokenRequest(refreshToken string) (*Tokens, error) {
+func (c *CanvaHttpClient) sendRefreshAccessTokenRequest(refreshToken string) (*Tokens, error) {
 	form := url.Values{}
 	form.Add("grant_type", "refresh_token")
 	form.Add("refresh_token", refreshToken)
@@ -158,7 +164,7 @@ func (c *CanvaClient) sendRefreshAccessTokenRequest(refreshToken string) (*Token
 	return &newTokens, nil
 }
 
-func (c *CanvaClient) startCanvaTokenRefresher(interval time.Duration) {
+func (c *CanvaHttpClient) startCanvaTokenRefresher(interval time.Duration) {
 	_, err := c.refreshAccessToken()
 	if err != nil {
 		slog.Error("Error refreshing token", "error", err)
@@ -176,7 +182,7 @@ func (c *CanvaClient) startCanvaTokenRefresher(interval time.Duration) {
 	}
 }
 
-func (c *CanvaClient) PopulateTemplate(ID string, imageFields []ImageField, textFields []TextField, colorFields []ColorField) (*UpdateTemplateResult, error) {
+func (c *CanvaHttpClient) PopulateTemplate(ID string, imageFields []ImageField, textFields []TextField, colorFields []ColorField) (*UpdateTemplateResult, error) {
 	inputData := populateTemplateInputData(imageFields, textFields, colorFields)
 	slog.Info("InputData populated", "Input data", inputData)
 
@@ -193,7 +199,7 @@ func (c *CanvaClient) PopulateTemplate(ID string, imageFields []ImageField, text
 	return c.decodeUpdateTemplateResult(resp)
 }
 
-func (c *CanvaClient) sendAutofillRequest(requestData map[string]interface{}) (*http.Response, error) {
+func (c *CanvaHttpClient) sendAutofillRequest(requestData map[string]interface{}) (*http.Response, error) {
 	accessToken, err := c.accessToken()
 	if err != nil {
 		return nil, err
@@ -216,7 +222,7 @@ func (c *CanvaClient) sendAutofillRequest(requestData map[string]interface{}) (*
 	return c.httpClient.Do(req)
 }
 
-func (c *CanvaClient) decodeUpdateTemplateResult(resp *http.Response) (*UpdateTemplateResult, error) {
+func (c *CanvaHttpClient) decodeUpdateTemplateResult(resp *http.Response) (*UpdateTemplateResult, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -231,7 +237,7 @@ func (c *CanvaClient) decodeUpdateTemplateResult(resp *http.Response) (*UpdateTe
 	return c.decodeUpdateTemplateJobResult(responseBody.Job.ID)
 }
 
-func (c *CanvaClient) decodeUpdateTemplateJobResult(jobID string) (*UpdateTemplateResult, error) {
+func (c *CanvaHttpClient) decodeUpdateTemplateJobResult(jobID string) (*UpdateTemplateResult, error) {
 	var jobStatusResponse UpdateTemplateJobStatus
 	for jobStatusResponse.Job.Status != "success" && jobStatusResponse.Job.Status != "failed" {
 		time.Sleep(2 * time.Second) // Wait for 2 seconds before checking status
@@ -274,7 +280,7 @@ func (c *CanvaClient) decodeUpdateTemplateJobResult(jobID string) (*UpdateTempla
 	return &jobStatusResponse.Job.Result, nil
 }
 
-func (c *CanvaClient) uploadAsset(asset []byte, name string) (*Asset, error) {
+func (c *CanvaHttpClient) uploadAsset(asset []byte, name string) (*Asset, error) {
 	resp, err := c.sendUploadAssetRequest(asset, name)
 	if err != nil {
 		return nil, fmt.Errorf("error sending request: %v", err)
@@ -283,7 +289,7 @@ func (c *CanvaClient) uploadAsset(asset []byte, name string) (*Asset, error) {
 	return c.decodeUploadAssetResponse(resp)
 }
 
-func (c *CanvaClient) sendUploadAssetRequest(asset []byte, name string) (*http.Response, error) {
+func (c *CanvaHttpClient) sendUploadAssetRequest(asset []byte, name string) (*http.Response, error) {
 	req, err := http.NewRequest("POST", assetUploadsEndpoint, bytes.NewBuffer(asset))
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %v", err)
@@ -324,7 +330,7 @@ func (c *CanvaClient) sendUploadAssetRequest(asset []byte, name string) (*http.R
 	return resp, nil
 }
 
-func (c *CanvaClient) decodeUploadAssetResponse(resp *http.Response) (*Asset, error) {
+func (c *CanvaHttpClient) decodeUploadAssetResponse(resp *http.Response) (*Asset, error) {
 	var uploadAssetResponse UploadAssetResponse
 	if err := json.NewDecoder(resp.Body).Decode(&uploadAssetResponse); err != nil {
 		return nil, fmt.Errorf("error decoding response body: %v", err)
@@ -370,7 +376,7 @@ func (c *CanvaClient) decodeUploadAssetResponse(resp *http.Response) (*Asset, er
 	return &uploadAssetResponse.Job.Asset, nil
 }
 
-func (c *CanvaClient) UploadColorAssets(colors []string) ([]string, error) {
+func (c *CanvaHttpClient) UploadColorAssets(colors []string) ([]string, error) {
 	errorCh := make(chan error, len(colors))
 	colorIds := make([]string, len(colors))
 
@@ -406,7 +412,7 @@ func (c *CanvaClient) UploadColorAssets(colors []string) ([]string, error) {
 	}
 }
 
-func (c *CanvaClient) createAndUploadColorAsset(color string) (*Asset, error) {
+func (c *CanvaHttpClient) createAndUploadColorAsset(color string) (*Asset, error) {
 	colorImg, err := createColorImage(color)
 	if err != nil {
 		return nil, fmt.Errorf("error creating color image: %v", err)
@@ -415,7 +421,7 @@ func (c *CanvaClient) createAndUploadColorAsset(color string) (*Asset, error) {
 	return c.uploadAsset(colorImg, "name")
 }
 
-func (c *CanvaClient) UploadImageAssets(images []string) ([]string, error) {
+func (c *CanvaHttpClient) UploadImageAssets(images []string) ([]string, error) {
 	errorCh := make(chan error, len(images))
 	imageIds := make([]string, len(images))
 
@@ -452,7 +458,7 @@ func (c *CanvaClient) UploadImageAssets(images []string) ([]string, error) {
 	}
 }
 
-func (c *CanvaClient) downloadAndUploadImageAsset(image string) (*Asset, error) {
+func (c *CanvaHttpClient) downloadAndUploadImageAsset(image string) (*Asset, error) {
 	img, err := c.downloadImage(image)
 
 	if err != nil {
@@ -462,7 +468,7 @@ func (c *CanvaClient) downloadAndUploadImageAsset(image string) (*Asset, error) 
 	return c.uploadAsset(img, "name")
 }
 
-func (c *CanvaClient) downloadImage(imageURL string) ([]byte, error) {
+func (c *CanvaHttpClient) downloadImage(imageURL string) ([]byte, error) {
 	resp, err := c.httpClient.Get(imageURL)
 	if err != nil {
 		return nil, err
