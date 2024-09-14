@@ -225,9 +225,9 @@ func TestMockHttpClient_RegexMatching(t *testing.T) {
 	client := &MockHttpClient{}
 
 	// Define mock responses with regex patterns
-	client.WillReturnBody("GET", `^/api/v1/resource/\d+$`, `{"message": "resource"}`)
-	client.WillReturnBody("POST", `^/api/v1/resource/\d+/create$`, `{"message": "created"}`)
-	client.WillReturnBody("GET", `^/api/v1/.*`, `{"message": "default"}`)
+	client.WillReturnBodyRegex("GET", `^/api/v1/resource/\d+$`, `{"message": "resource"}`)
+	client.WillReturnBodyRegex("POST", `^/api/v1/resource/\d+/create$`, `{"message": "created"}`)
+	client.WillReturnBodyRegex("GET", `^/api/v1/.*`, `{"message": "default"}`)
 
 	tests := []struct {
 		method       string
@@ -265,7 +265,7 @@ func TestMockHttpClient_RegexMatching2(t *testing.T) {
 	client := &MockHttpClient{}
 
 	// Define mock responses with regex patterns
-	client.WillReturnBody("GET", `/api,*`, `{"message": "resource"}`)
+	client.WillReturnBodyRegex("GET", `/api,*`, `{"message": "resource"}`)
 
 	tests := []struct {
 		method       string
