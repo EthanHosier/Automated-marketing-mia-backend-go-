@@ -1,16 +1,16 @@
-package http_test
+package http
 
 import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"testing"
-
-	"github.com/ethanhosier/mia-backend-go/http"
 )
 
 func TestMockHttpClient_Get_Success(t *testing.T) {
-	client := &http.MockHttpClient{}
+	client := &MockHttpClient{}
 	mockURL := "http://example.com"
 	mockBody := `{"message": "success"}`
 	client.WillReturnBody("GET", mockURL, mockBody)
@@ -21,7 +21,7 @@ func TestMockHttpClient_Get_Success(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != StatusOK {
 		t.Errorf("expected status code 200, got %d", resp.StatusCode)
 	}
 
@@ -36,7 +36,7 @@ func TestMockHttpClient_Get_Success(t *testing.T) {
 }
 
 func TestMockHttpClient_Get_NoMock(t *testing.T) {
-	client := &http.MockHttpClient{}
+	client := &MockHttpClient{}
 	mockURL := "http://example.com"
 
 	_, err := client.Get(mockURL)
@@ -52,7 +52,7 @@ func TestMockHttpClient_Get_NoMock(t *testing.T) {
 }
 
 func TestMockHttpClient_Get_MultipleURLs(t *testing.T) {
-	client := &http.MockHttpClient{}
+	client := &MockHttpClient{}
 	client.WillReturnBody("GET", "http://example.com/1", `{"message": "success1"}`)
 	client.WillReturnBody("GET", "http://example.com/2", `{"message": "success2"}`)
 
@@ -86,7 +86,7 @@ func TestMockHttpClient_Get_MultipleURLs(t *testing.T) {
 }
 
 func TestMockHttpClient_Get_EmptyBody(t *testing.T) {
-	client := &http.MockHttpClient{}
+	client := &MockHttpClient{}
 	mockURL := "http://example.com/empty"
 	client.WillReturnBody("GET", mockURL, "")
 
@@ -107,7 +107,7 @@ func TestMockHttpClient_Get_EmptyBody(t *testing.T) {
 }
 
 func TestMockHttpClient_Get_OverwriteBody(t *testing.T) {
-	client := &http.MockHttpClient{}
+	client := &MockHttpClient{}
 	mockURL := "http://example.com"
 	client.WillReturnBody("GET", mockURL, `{"message": "old"}`)
 	client.WillReturnBody("GET", mockURL, `{"message": "new"}`)
@@ -130,7 +130,7 @@ func TestMockHttpClient_Get_OverwriteBody(t *testing.T) {
 }
 
 func TestMockHttpClient_WillReturnError_Success(t *testing.T) {
-	client := &http.MockHttpClient{}
+	client := &MockHttpClient{}
 	mockURL := "http://example.com"
 	mockError := fmt.Errorf("mock error")
 	client.WillReturnError("POST", mockURL, mockError)
@@ -151,7 +151,7 @@ func TestMockHttpClient_WillReturnError_Success(t *testing.T) {
 }
 
 func TestNewRequest(t *testing.T) {
-	mockClient := &http.MockHttpClient{}
+	mockClient := &MockHttpClient{}
 
 	mockClient.WillReturnBody("POST", "https://example.com", "mocked body")
 
@@ -182,7 +182,7 @@ func TestNewRequest(t *testing.T) {
 }
 
 func TestDo_Success(t *testing.T) {
-	mockClient := &http.MockHttpClient{}
+	mockClient := &MockHttpClient{}
 	mockClient.WillReturnBody("POST", "https://example.com", "mocked response body")
 
 	// Create a POST request that matches the mock setup
@@ -201,13 +201,13 @@ func TestDo_Success(t *testing.T) {
 		t.Errorf("Do() body = %v, want %v", bodyBytes, expectedBody)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Do() status code = %v, want %v", resp.StatusCode, http.StatusOK)
+	if resp.StatusCode != StatusOK {
+		t.Errorf("Do() status code = %v, want %v", resp.StatusCode, StatusOK)
 	}
 }
 
 func TestDo_Error(t *testing.T) {
-	mockClient := &http.MockHttpClient{}
+	mockClient := &MockHttpClient{}
 
 	req, _ := mockClient.NewRequest("POST", "https://example.com", bytes.NewBufferString("request body"))
 
@@ -218,5 +218,80 @@ func TestDo_Error(t *testing.T) {
 
 	if resp != nil {
 		t.Errorf("Do() expected nil response, got %v", resp)
+	}
+}
+
+func TestMockHttpClient_RegexMatching(t *testing.T) {
+	client := &MockHttpClient{}
+
+	// Define mock responses with regex patterns
+	client.WillReturnBody("GET", `^/api/v1/resource/\d+$`, `{"message": "resource"}`)
+	client.WillReturnBody("POST", `^/api/v1/resource/\d+/create$`, `{"message": "created"}`)
+	client.WillReturnBody("GET", `^/api/v1/.*`, `{"message": "default"}`)
+
+	tests := []struct {
+		method       string
+		url          string
+		expectedBody string
+	}{
+		{"GET", "/api/v1/resource/123", `{"message": "resource"}`},
+		{"POST", "/api/v1/resource/456/create", `{"message": "created"}`},
+		{"GET", "/api/v1/other", `{"message": "default"}`},
+		{"GET", "/api/v1/unknown", `{"message": "default"}`},
+	}
+
+	for _, test := range tests {
+		resp, err := client.Do(&http.Request{
+			Method: test.method,
+			URL:    &url.URL{Path: test.url},
+		})
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("failed to read body: %v", err)
+		}
+
+		if string(body) != test.expectedBody {
+			t.Errorf("for %s %s: expected body %s, got %s", test.method, test.url, test.expectedBody, string(body))
+		}
+	}
+}
+
+func TestMockHttpClient_RegexMatching2(t *testing.T) {
+	client := &MockHttpClient{}
+
+	// Define mock responses with regex patterns
+	client.WillReturnBody("GET", `/api,*`, `{"message": "resource"}`)
+
+	tests := []struct {
+		method       string
+		url          string
+		expectedBody string
+	}{
+		{"GET", "/api/v1/resource/123", `{"message": "resource"}`},
+	}
+
+	for _, test := range tests {
+		resp, err := client.Do(&http.Request{
+			Method: test.method,
+			URL:    &url.URL{Path: test.url},
+		})
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("failed to read body: %v", err)
+		}
+
+		if string(body) != test.expectedBody {
+			t.Errorf("for %s %s: expected body %s, got %s", test.method, test.url, test.expectedBody, string(body))
+		}
 	}
 }

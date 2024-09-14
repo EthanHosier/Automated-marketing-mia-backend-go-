@@ -7,7 +7,7 @@
         "type": "go",
         "request": "launch",
         "mode": "test",
-        "program": "${workspaceFolder}/services", // Adjust the path to your test file’s directory
+        "program": "${workspaceFolder}/canva", // Adjust the path to your test file’s directory
         "args": ["-test.v"],
         "buildFlags": "-tags=integration", // Optional: specify any build tags if needed
         "env": {},

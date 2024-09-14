@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	net_http "net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -199,7 +200,7 @@ func (c *CanvaHttpClient) PopulateTemplate(ID string, imageFields []ImageField, 
 	return c.decodeUpdateTemplateResult(resp)
 }
 
-func (c *CanvaHttpClient) sendAutofillRequest(requestData map[string]interface{}) (*http.Response, error) {
+func (c *CanvaHttpClient) sendAutofillRequest(requestData map[string]interface{}) (*net_http.Response, error) {
 	accessToken, err := c.accessToken()
 	if err != nil {
 		return nil, err
@@ -222,7 +223,7 @@ func (c *CanvaHttpClient) sendAutofillRequest(requestData map[string]interface{}
 	return c.httpClient.Do(req)
 }
 
-func (c *CanvaHttpClient) decodeUpdateTemplateResult(resp *http.Response) (*UpdateTemplateResult, error) {
+func (c *CanvaHttpClient) decodeUpdateTemplateResult(resp *net_http.Response) (*UpdateTemplateResult, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -243,7 +244,7 @@ func (c *CanvaHttpClient) decodeUpdateTemplateJobResult(jobID string) (*UpdateTe
 		time.Sleep(2 * time.Second) // Wait for 2 seconds before checking status
 
 		statusURL := fmt.Sprintf("%s/%s", autofillEndpoint, jobID)
-		req, err := http.NewRequest("GET", statusURL, nil)
+		req, err := c.httpClient.NewRequest("GET", statusURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error creating request: %v", err)
 		}
@@ -289,8 +290,8 @@ func (c *CanvaHttpClient) uploadAsset(asset []byte, name string) (*Asset, error)
 	return c.decodeUploadAssetResponse(resp)
 }
 
-func (c *CanvaHttpClient) sendUploadAssetRequest(asset []byte, name string) (*http.Response, error) {
-	req, err := http.NewRequest("POST", assetUploadsEndpoint, bytes.NewBuffer(asset))
+func (c *CanvaHttpClient) sendUploadAssetRequest(asset []byte, name string) (*net_http.Response, error) {
+	req, err := c.httpClient.NewRequest("POST", assetUploadsEndpoint, bytes.NewBuffer(asset))
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %v", err)
 	}
@@ -309,7 +310,7 @@ func (c *CanvaHttpClient) sendUploadAssetRequest(asset []byte, name string) (*ht
 		return nil, fmt.Errorf("error getting access token: %v", err)
 	}
 
-	req.Header = http.Header{
+	req.Header = net_http.Header{
 		"Authorization":         {"Bearer " + accessToken},
 		"Content-Type":          {"application/octet-stream"},
 		"Asset-Upload-Metadata": {string(metadataJSON)},
@@ -330,7 +331,7 @@ func (c *CanvaHttpClient) sendUploadAssetRequest(asset []byte, name string) (*ht
 	return resp, nil
 }
 
-func (c *CanvaHttpClient) decodeUploadAssetResponse(resp *http.Response) (*Asset, error) {
+func (c *CanvaHttpClient) decodeUploadAssetResponse(resp *net_http.Response) (*Asset, error) {
 	var uploadAssetResponse UploadAssetResponse
 	if err := json.NewDecoder(resp.Body).Decode(&uploadAssetResponse); err != nil {
 		return nil, fmt.Errorf("error decoding response body: %v", err)
@@ -340,7 +341,7 @@ func (c *CanvaHttpClient) decodeUploadAssetResponse(resp *http.Response) (*Asset
 		time.Sleep(2 * time.Second) // Wait for 2 seconds before checking status
 
 		statusURL := fmt.Sprintf("%s/%s", assetUploadsEndpoint, uploadAssetResponse.Job.ID)
-		req, err := http.NewRequest("GET", statusURL, nil)
+		req, err := c.httpClient.NewRequest("GET", statusURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error creating request: %v", err)
 		}
