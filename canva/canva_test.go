@@ -1,54 +1,116 @@
 package canva
 
 import (
+	"testing"
+
 	"github.com/ethanhosier/mia-backend-go/http"
 	"github.com/stretchr/testify/assert"
-	"testing"
+)
+
+const (
+	testTokenBufferSecs = 9999999999
 )
 
 func TestCanvaClient_PopulateTemplate(t *testing.T) {
-	mockClient := &http.MockHttpClient{}
-	canvaClient := NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient)
+	// given
+	var (
+		mockClient  = &http.MockHttpClient{}
+		canvaClient = NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
 
-	// Mock the response for the PopulateTemplate API call
+		templateResult = &UpdateTemplateResult{
+			Type: "template_update",
+			Design: Design{
+				CreatedAt: 1694640000,
+				ID:        "design_67890",
+				Title:     "Spring Collection",
+				UpdatedAt: 1694643600,
+				Thumbnail: struct {
+					URL string `json:"url"`
+				}{
+					URL: "https://example.com/thumbnail.jpg",
+				},
+				URL: "https://example.com/design/67890",
+				URLs: struct {
+					EditURL string `json:"edit_url"`
+					ViewURL string `json:"view_url"`
+				}{
+					EditURL: "https://example.com/edit/67890",
+					ViewURL: "https://example.com/view/67890",
+				},
+			},
+		}
+
+		imageFields = []ImageField{}
+		textFields  = []TextField{}
+		colorFields = []ColorField{}
+	)
+
 	mockClient.WillReturnBody("POST", autofillEndpoint, `{"job": {"id": "1234"}}`)
-	mockClient.WillReturnBody("GET", autofillEndpoint+"/1234", `{"job": {"status": "success"}}`)
-	mockClient.WillReturnHeader("POST", tokenEndpoint+"?grant_type=refresh_token&refresh_token=", map[string]string{"Location": "https://redirect-url.com"})
+	mockClient.WillReturnBody("POST", tokenEndpoint+".*", `{"access_token": "validAccessToken", "expires_in": 0, "token_type": "Bearer", "refresh_token": "validRefreshToken"}`)
+	mockClient.WillReturnBody("GET", autofillEndpoint+"/1234", `{"job": {
+  "id": "job_12345",
+  "result": {
+    "type": "template_update",
+    "design": {
+      "created_at": 1694640000,
+      "id": "design_67890",
+      "title": "Spring Collection",
+      "updated_at": 1694643600,
+      "thumbnail": {
+        "url": "https://example.com/thumbnail.jpg"
+      },
+      "url": "https://example.com/design/67890",
+      "urls": {
+        "edit_url": "https://example.com/edit/67890",
+        "view_url": "https://example.com/view/67890"
+      }
+    }
+  },
+  "status": "success"
+}}`)
 
-	// Create test inputs
-	imageFields := []ImageField{}
-	textFields := []TextField{}
-	colorFields := []ColorField{}
-
-	// Call the method
+	// when
 	result, err := canvaClient.PopulateTemplate("testTemplateID", imageFields, textFields, colorFields)
 
-	// Assertions
+	// then
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
+	assert.Equal(t, templateResult, result)
 }
 
 func TestCanvaClient_UploadImageAssets(t *testing.T) {
 	mockClient := &http.MockHttpClient{}
-	canvaClient := NewClient("testClientID", "testClientSecret", "/path/to/tokens.json", mockClient)
+	canvaClient := NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
 
 	// Mock the responses for the UploadImageAssets API call
-	mockClient.WillReturnBody("POST", assetUploadsEndpoint, `{"job": {"id": "1234"}}`)
-	mockClient.WillReturnBody("GET", assetUploadsEndpoint+"/1234", `{"job": {"status": "success", "asset": {"id": "assetID123"}}}`)
+	mockClient.WillReturnBody("POST", assetUploadsEndpoint, `{
+		"job": {
+			"id": "1234",
+			"status": "success",
+			"asset": {
+				"id": "5678"
+			}
+		}
+	}`)
 
-	images := []string{"image1.jpg", "image2.jpg"}
+	mockClient.WillReturnBody("POST", tokenEndpoint+".*", `{"access_token": "validAccessToken", "expires_in": 0, "token_type": "Bearer", "refresh_token": "validRefreshToken"}`)
+	mockClient.WillReturnBody("GET", "http://image1.jpg", `image1`)
+	mockClient.WillReturnBody("GET", "http://image2.jpg", `image2`)
+
+	images := []string{"http://image1.jpg", "http://image2.jpg"}
 	imageIDs, err := canvaClient.UploadImageAssets(images)
 
 	// Assertions
 	assert.NoError(t, err)
-	assert.Equal(t, []string{"assetID123", "assetID123"}, imageIDs)
+	assert.Equal(t, []string{"5678", "5678"}, imageIDs)
 }
 
 func TestCanvaClient_UploadColorAssets(t *testing.T) {
 	mockClient := &http.MockHttpClient{}
-	canvaClient := NewClient("testClientID", "testClientSecret", "/path/to/tokens.json", mockClient)
+	canvaClient := NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
 
 	// Mock the response for color asset uploads
+	mockClient.WillReturnBody("POST", tokenEndpoint+".*", `{"access_token": "validAccessToken", "expires_in": 0, "token_type": "Bearer", "refresh_token": "validRefreshToken"}`)
 	mockClient.WillReturnBody("POST", assetUploadsEndpoint, `{"job": {"id": "1234"}}`)
 	mockClient.WillReturnBody("GET", assetUploadsEndpoint+"/1234", `{"job": {"status": "success", "asset": {"id": "colorID123"}}}`)
 
@@ -62,10 +124,10 @@ func TestCanvaClient_UploadColorAssets(t *testing.T) {
 
 func TestCanvaClient_refreshAccessToken(t *testing.T) {
 	mockClient := &http.MockHttpClient{}
-	canvaClient := NewClient("testClientID", "testClientSecret", "/path/to/tokens.json", mockClient)
+	canvaClient := NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
 
 	// Mock the response for the token refresh
-	mockClient.WillReturnBody("POST", tokenEndpoint, `{"access_token": "newAccessToken", "expires_in": 3600}`)
+	mockClient.WillReturnBody("POST", tokenEndpoint+".*", `{"access_token": "newAccessToken", "expires_in": 0, "token_type": "Bearer", "refresh_token": "validRefreshToken"}`)
 
 	token, err := canvaClient.refreshAccessToken()
 
@@ -76,10 +138,10 @@ func TestCanvaClient_refreshAccessToken(t *testing.T) {
 
 func TestCanvaClient_sendAutofillRequest(t *testing.T) {
 	mockClient := &http.MockHttpClient{}
-	canvaClient := NewClient("testClientID", "testClientSecret", "/path/to/tokens.json", mockClient)
+	canvaClient := NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
 
 	// Mock access token
-	mockClient.WillReturnBody("POST", tokenEndpoint, `{"access_token": "validAccessToken", "expires_in": 3600}`)
+	mockClient.WillReturnBody("POST", tokenEndpoint+".*", `{"access_token": "validAccessToken", "expires_in": 0, "token_type": "Bearer", "refresh_token": "validRefreshToken"}`)
 
 	// Mock autofill request
 	mockClient.WillReturnBody("POST", autofillEndpoint, `{"job": {"id": "1234"}}`)
@@ -99,9 +161,10 @@ func TestCanvaClient_sendAutofillRequest(t *testing.T) {
 
 func TestCanvaClient_decodeUpdateTemplateJobResult_Success(t *testing.T) {
 	mockClient := &http.MockHttpClient{}
-	canvaClient := NewClient("testClientID", "testClientSecret", "/path/to/tokens.json", mockClient)
+	canvaClient := NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
 
 	// Mock the job status check
+	mockClient.WillReturnBody("POST", tokenEndpoint+".*", `{"access_token": "validAccessToken", "expires_in": 0, "token_type": "Bearer", "refresh_token": "validRefreshToken"}`)
 	mockClient.WillReturnBody("GET", autofillEndpoint+"/1234", `{"job": {"status": "success", "result": {"data": "testResult"}}}`)
 
 	// Call decodeUpdateTemplateJobResult method
@@ -114,9 +177,10 @@ func TestCanvaClient_decodeUpdateTemplateJobResult_Success(t *testing.T) {
 
 func TestCanvaClient_decodeUploadAssetResponse(t *testing.T) {
 	mockClient := &http.MockHttpClient{}
-	canvaClient := NewClient("testClientID", "testClientSecret", "/path/to/tokens.json", mockClient)
+	canvaClient := NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
 
 	// Mock the asset upload response
+	mockClient.WillReturnBody("POST", tokenEndpoint+".*", `{"access_token": "validAccessToken", "expires_in": 0, "token_type": "Bearer", "refresh_token": "validRefreshToken"}`)
 	mockClient.WillReturnBody("GET", assetUploadsEndpoint+"/1234", `{"job": {"status": "success", "asset": {"id": "assetID123"}}}`)
 
 	// Call decodeUploadAssetResponse method

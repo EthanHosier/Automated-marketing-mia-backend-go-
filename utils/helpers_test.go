@@ -122,3 +122,73 @@ func TestDoAsync_Goroutine(t *testing.T) {
 		t.Fatalf("expected result 42, got: %d", result)
 	}
 }
+
+func mockFuncListSuccess(item int) (string, error) {
+	if item%2 == 0 {
+		return "even", nil
+	}
+	return "odd", nil
+}
+
+func mockFuncListFail(item int) (string, error) {
+	return "", errors.New("mock failure")
+}
+
+func TestDoAsyncList_Success(t *testing.T) {
+	items := []int{1, 2, 3, 4, 5}
+	tasks := DoAsyncList(items, mockFuncListSuccess)
+
+	results, err := GetAsyncList(tasks)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	expected := []string{"odd", "even", "odd", "even", "odd"}
+	for i, result := range results {
+		if result != expected[i] {
+			t.Fatalf("expected result %s, got: %s", expected[i], result)
+		}
+	}
+}
+
+func TestDoAsyncList_Failures(t *testing.T) {
+	items := []int{1, 2, 3, 4, 5}
+	tasks := DoAsyncList(items, mockFuncListFail)
+
+	_, err := GetAsyncList(tasks)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+}
+
+func TestDoAsyncList_EmptyList(t *testing.T) {
+	items := []int{}
+	tasks := DoAsyncList(items, mockFuncListSuccess)
+
+	results, err := GetAsyncList(tasks)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	if len(results) != 0 {
+		t.Fatalf("expected empty result list, got: %v", results)
+	}
+}
+
+func TestGetAsyncList_WithErrors(t *testing.T) {
+	items := []int{1, 2, 3, 4, 5}
+	tasks := DoAsyncList(items, func(item int) (string, error) {
+		if item%2 == 0 {
+			return "", errors.New("error for even item")
+		}
+		return "odd", nil
+	})
+
+	results, err := GetAsyncList(tasks)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if results != nil {
+		t.Fatalf("expected nil results on error, got: %v", results)
+	}
+}

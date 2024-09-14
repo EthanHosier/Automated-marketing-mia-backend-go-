@@ -49,6 +49,18 @@ func DoAsync[T any](fn func() (T, error)) *Task[T] {
 	return &Task[T]{ch, errorCh}
 }
 
+func DoAsyncList[T any, U any](items []T, fn func(T) (U, error)) []*Task[U] {
+	tasks := make([]*Task[U], len(items))
+
+	for i, item := range items {
+		tasks[i] = DoAsync(func() (U, error) {
+			return fn(item)
+		})
+	}
+
+	return tasks
+}
+
 func GetAsync[T any](task *Task[T]) (T, error) {
 	var zero T // This will initialize `zero` to the zero value for type T
 	select {
@@ -57,4 +69,18 @@ func GetAsync[T any](task *Task[T]) (T, error) {
 	case err := <-task.errorCh:
 		return zero, err
 	}
+}
+
+func GetAsyncList[T any](tasks []*Task[T]) ([]T, error) {
+	results := make([]T, len(tasks))
+
+	for i, task := range tasks {
+		result, err := GetAsync(task)
+		if err != nil {
+			return nil, err
+		}
+		results[i] = result
+	}
+
+	return results, nil
 }

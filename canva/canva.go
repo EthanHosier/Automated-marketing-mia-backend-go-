@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ethanhosier/mia-backend-go/http"
+	"github.com/ethanhosier/mia-backend-go/utils"
 )
 
 const (
@@ -34,17 +35,19 @@ type CanvaHttpClient struct {
 	clientSecret string
 	httpClient   http.Client
 
-	tokensFilePath string
-	mu             sync.Mutex
+	tokensFilePath  string
+	mu              sync.Mutex
+	tokenBufferSecs int
 }
 
-func NewClient(clientID string, clientSecret string, tokensFilePath string, httpClient http.Client) *CanvaHttpClient {
+func NewClient(clientID string, clientSecret string, tokensFilePath string, httpClient http.Client, tokenBufferSecs int) *CanvaHttpClient {
 	canvaClient := CanvaHttpClient{
-		clientID:       clientID,
-		clientSecret:   clientSecret,
-		httpClient:     httpClient,
-		tokensFilePath: tokensFilePath,
-		mu:             sync.Mutex{},
+		clientID:        clientID,
+		clientSecret:    clientSecret,
+		httpClient:      httpClient,
+		tokensFilePath:  tokensFilePath,
+		mu:              sync.Mutex{},
+		tokenBufferSecs: tokenBufferSecs,
 	}
 
 	go canvaClient.startCanvaTokenRefresher(30 * time.Minute)
@@ -106,7 +109,7 @@ func (c *CanvaHttpClient) refreshAccessToken() (string, error) {
 		return "", fmt.Errorf("failed to load tokens: %v", err)
 	}
 
-	if tokens.ExpiresIn > (time.Now().Unix() + 300) {
+	if tokens.ExpiresIn > (time.Now().Unix() + int64(c.tokenBufferSecs)) {
 		// Token is still valid with a 5-minute buffer
 		return tokens.AccessToken, nil
 	}
@@ -118,6 +121,14 @@ func (c *CanvaHttpClient) refreshAccessToken() (string, error) {
 	newTokens, err := c.sendRefreshAccessTokenRequest(tokens.RefreshToken)
 	if err != nil {
 		return "", fmt.Errorf("failed to refresh access token: %v", err)
+	}
+
+	if newTokens.AccessToken == "" {
+		return "", fmt.Errorf("access token not found in response")
+	}
+
+	if newTokens.RefreshToken == "" {
+		return "", fmt.Errorf("refresh token not found in response")
 	}
 
 	err = c.saveTokens(newTokens)
@@ -378,39 +389,16 @@ func (c *CanvaHttpClient) decodeUploadAssetResponse(resp *net_http.Response) (*A
 }
 
 func (c *CanvaHttpClient) UploadColorAssets(colors []string) ([]string, error) {
-	errorCh := make(chan error, len(colors))
-	colorIds := make([]string, len(colors))
+	tasks := utils.DoAsyncList(colors, func(color string) (string, error) {
+		asset, err := c.createAndUploadColorAsset(color)
+		if err != nil {
+			return "", fmt.Errorf("error creating and uploading color asset: %v", err)
+		}
 
-	mu := sync.Mutex{}
+		return asset.ID, nil
+	})
 
-	colorWg := sync.WaitGroup{}
-	colorWg.Add(len(colors))
-
-	for i, color := range colors {
-		go func(i int, color string) {
-			defer colorWg.Done()
-
-			asset, err := c.createAndUploadColorAsset(color)
-			if err != nil {
-				errorCh <- fmt.Errorf("error creating and uploading image asset: %v", err)
-				return
-			}
-
-			mu.Lock()
-			defer mu.Unlock()
-			colorIds[i] = asset.ID
-		}(i, color)
-	}
-
-	colorWg.Wait()
-	close(errorCh)
-
-	select {
-	case err := <-errorCh:
-		return nil, err
-	default:
-		return colorIds, nil
-	}
+	return utils.GetAsyncList(tasks)
 }
 
 func (c *CanvaHttpClient) createAndUploadColorAsset(color string) (*Asset, error) {
@@ -423,40 +411,16 @@ func (c *CanvaHttpClient) createAndUploadColorAsset(color string) (*Asset, error
 }
 
 func (c *CanvaHttpClient) UploadImageAssets(images []string) ([]string, error) {
-	errorCh := make(chan error, len(images))
-	imageIds := make([]string, len(images))
+	tasks := utils.DoAsyncList(images, func(image string) (string, error) {
+		asset, err := c.downloadAndUploadImageAsset(image)
+		if err != nil {
+			return "", fmt.Errorf("error downloading and uploading image asset: %v", err)
+		}
 
-	mu := sync.Mutex{}
+		return asset.ID, nil
+	})
 
-	imageIdsWg := sync.WaitGroup{}
-	imageIdsWg.Add(len(imageIds))
-
-	for i, field := range images {
-		go func(i int, image string) {
-			defer imageIdsWg.Done()
-
-			asset, err := c.downloadAndUploadImageAsset(image)
-			if err != nil {
-				errorCh <- fmt.Errorf("error downloading and uploading image asset: %v", err)
-				return
-			}
-
-			mu.Lock()
-			defer mu.Unlock()
-
-			imageIds[i] = asset.ID
-		}(i, field)
-	}
-
-	imageIdsWg.Wait()
-	close(errorCh)
-
-	select {
-	case err := <-errorCh:
-		return nil, err
-	default:
-		return imageIds, nil
-	}
+	return utils.GetAsyncList(tasks)
 }
 
 func (c *CanvaHttpClient) downloadAndUploadImageAsset(image string) (*Asset, error) {
