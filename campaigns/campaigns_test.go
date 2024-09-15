@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/ethanhosier/mia-backend-go/canva"
 	"github.com/ethanhosier/mia-backend-go/openai"
 	"github.com/ethanhosier/mia-backend-go/researcher"
 	"github.com/ethanhosier/mia-backend-go/storage"
@@ -190,4 +191,175 @@ func TestThemes(t *testing.T) {
 	assert.Len(t, res, 2)
 	assert.Equal(t, theme1, res[0])
 	assert.Equal(t, theme2, res[1])
+}
+
+func TestInitColorFields(t *testing.T) {
+	// given
+	var (
+		canvaClient = canva.MockCanvaClient{}
+		c           = NewCampaignClient(nil, nil, &canvaClient, nil)
+
+		color1 = "#FFFFFF"
+		color2 = "#000000"
+
+		id1 = "id1"
+		id2 = "id2"
+
+		colorFields = []PopulatedColorField{
+			{
+				Name:  "color1",
+				Color: color1,
+			},
+			{
+				Name:  "color2",
+				Color: color2,
+			},
+		}
+	)
+	canvaClient.WillReturnUploadColorAssets([]string{color1, color2}, []string{id1, id2})
+
+	// when
+	res, err := c.initColorFields(colorFields)
+
+	// then
+	assert.NoError(t, err)
+	assert.Len(t, res, 2)
+	assert.Equal(t, id1, res[0].ColorAssetId)
+	assert.Equal(t, id2, res[1].ColorAssetId)
+}
+
+func TestInitImageFields(t *testing.T) {
+	// given
+	var (
+		canvaClient = canva.MockCanvaClient{}
+		op          = openai.MockOpenaiClient{}
+		c           = NewCampaignClient(&op, nil, &canvaClient, nil)
+
+		imgFields = []PopulatedField{
+			{
+				Name:  "img1",
+				Value: "val1",
+				Type:  ImageType,
+			},
+			{
+				Name:  "img2",
+				Value: "val2",
+				Type:  ImageType,
+			},
+		}
+
+		candidateImages    = []string{"candidateImg1", "candidateImg2"}
+		campaignDetailsStr = "campaignDetails"
+
+		prompt1 = fmt.Sprintf(openai.PickBestImagePrompt, campaignDetailsStr, "val1")
+		prompt2 = fmt.Sprintf(openai.PickBestImagePrompt, campaignDetailsStr, "val2")
+
+		imgAssetId1 = "imgAssetId1"
+		imgAssetId2 = "imgAssetId2"
+	)
+
+	op.WillReturnImageCompletion(prompt1, candidateImages, openai.GPT4o, "0")
+	op.WillReturnImageCompletion(prompt2, candidateImages, openai.GPT4o, "1")
+
+	canvaClient.WillReturnUploadImageAssets(candidateImages, []string{imgAssetId1, imgAssetId2})
+
+	// when
+	res, err := c.initImageFields(imgFields, candidateImages, campaignDetailsStr)
+
+	// then
+	assert.NoError(t, err)
+	assert.Len(t, res, 2)
+	assert.Equal(t, imgAssetId1, res[0].AssetId)
+	assert.Equal(t, imgAssetId2, res[1].AssetId)
+}
+
+func TestInitFields(t *testing.T) {
+	// given
+	var (
+		canvaClient = canva.MockCanvaClient{}
+		op          = openai.MockOpenaiClient{}
+		c           = NewCampaignClient(&op, nil, &canvaClient, nil)
+
+		imgFields = []PopulatedField{
+			{
+				Name:  "img1",
+				Value: "val1",
+				Type:  ImageType,
+			},
+			{
+				Name:  "img2",
+				Value: "val2",
+				Type:  ImageType,
+			},
+		}
+
+		colorFields = []PopulatedColorField{
+			{
+				Name:  "color1",
+				Color: "#FFFFFF",
+			},
+			{
+				Name:  "color2",
+				Color: "#000000",
+			},
+		}
+
+		textFields = []PopulatedField{
+			{
+				Name:  "text1",
+				Value: "text val1",
+				Type:  TextType,
+			},
+			{
+				Name:  "text2",
+				Value: "text val2",
+				Type:  TextType,
+			},
+		}
+
+		extractedTemplate = ExtractedTemplate{
+			Platform:    "platform",
+			Fields:      append(imgFields, textFields...),
+			ColorFields: colorFields,
+			Caption:     "caption",
+		}
+
+		candidateImages    = []string{"candidateImg1", "candidateImg2"}
+		campaignDetailsStr = "campaignDetails"
+
+		prompt1 = fmt.Sprintf(openai.PickBestImagePrompt, campaignDetailsStr, "val1")
+		prompt2 = fmt.Sprintf(openai.PickBestImagePrompt, campaignDetailsStr, "val2")
+
+		imgAssetId1 = "imgAssetId1"
+		imgAssetId2 = "imgAssetId2"
+
+		color1 = "#FFFFFF"
+		color2 = "#000000"
+
+		colorAssetId1 = "colorAssetId1"
+		colorAssetId2 = "colorAssetId2"
+	)
+
+	op.WillReturnImageCompletion(prompt1, candidateImages, openai.GPT4o, "0")
+	op.WillReturnImageCompletion(prompt2, candidateImages, openai.GPT4o, "1")
+
+	canvaClient.WillReturnUploadImageAssets(candidateImages, []string{imgAssetId1, imgAssetId2})
+	canvaClient.WillReturnUploadColorAssets([]string{color1, color2}, []string{colorAssetId1, colorAssetId2})
+
+	// when
+	textRes, imgRes, colorRes, err := c.initFields(&extractedTemplate, campaignDetailsStr, candidateImages)
+
+	// then
+	assert.NoError(t, err)
+	assert.Len(t, imgRes, 2)
+	assert.Equal(t, imgAssetId1, imgRes[0].AssetId)
+	assert.Equal(t, imgAssetId2, imgRes[1].AssetId)
+
+	assert.Len(t, colorRes, 2)
+	assert.Equal(t, colorAssetId1, colorRes[0].ColorAssetId)
+	assert.Equal(t, colorAssetId2, colorRes[1].ColorAssetId)
+
+	assert.Len(t, textRes, 2)
+	assert.Equal(t, textFields[0].Value, textRes[0].Text)
+	assert.Equal(t, textFields[1].Value, textRes[1].Text)
 }
