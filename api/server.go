@@ -4,24 +4,20 @@ import (
 	"net/http"
 
 	"github.com/ethanhosier/mia-backend-go/api/handlers"
-	"github.com/ethanhosier/mia-backend-go/researcher"
-	"github.com/ethanhosier/mia-backend-go/storage"
+	"github.com/ethanhosier/mia-backend-go/config"
 )
 
 type Server struct {
 	listenAddr string
-	store      storage.Storage
+	config     config.ServerConfig
 	router     *http.ServeMux
-
-	researcher *researcher.ResearcherClient
 }
 
-func NewServer(listenAddr string, store storage.Storage, researcher *researcher.ResearcherClient) *Server {
+func NewServer(listenAddr string, config config.ServerConfig) *Server {
 	s := &Server{
 		listenAddr: listenAddr,
-		store:      store,
+		config:     config,
 		router:     http.NewServeMux(),
-		researcher: researcher,
 	}
 
 	s.routes()
@@ -29,13 +25,13 @@ func NewServer(listenAddr string, store storage.Storage, researcher *researcher.
 }
 
 func (s *Server) routes() {
-	s.router.HandleFunc("POST /business-summaries", handlers.BusinessSummaries(s.store, s.researcher))
-	s.router.HandleFunc("PATCH /business-summaries", handlers.PatchBusinessSummaries(s.store))
-	s.router.HandleFunc("GET /business-summaries", handlers.GetBusinessSummaries(s.store))
+	s.router.HandleFunc("POST /business-summaries", handlers.BusinessSummaries(s.config.Store, s.config.Researcher))
+	s.router.HandleFunc("PATCH /business-summaries", handlers.PatchBusinessSummaries(s.config.Store))
+	s.router.HandleFunc("GET /business-summaries", handlers.GetBusinessSummaries(s.config.Store))
 
-	s.router.HandleFunc("GET /sitemap", handlers.GetSitemap(s.store))
+	s.router.HandleFunc("GET /sitemap", handlers.GetSitemap(s.config.Store))
 
-	// s.router.HandleFunc("POST /campaigns", handlers.GenerateCampaigns(s.store, s.llmClient))
+	s.router.HandleFunc("POST /campaigns", handlers.GenerateCampaigns(s.config.Store, s.config.CampaignClient))
 }
 
 func (s *Server) Start() error {

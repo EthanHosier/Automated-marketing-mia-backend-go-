@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -15,6 +16,10 @@ const (
 	NEAREST_TEMPLATE RpcMethod = iota
 	NEAREST_URL
 	RANDOM_URLS
+)
+
+var (
+	NotFoundError = errors.New("not found")
 )
 
 var tableNames = map[reflect.Type]string{
@@ -57,6 +62,7 @@ func Get[T any](storage Storage, id string) (*T, error) {
 	return &ret, nil
 }
 
+// TODO: add matchingFields {} to match on
 func GetRandom[T any](storage Storage, limit int) ([]T, error) {
 	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
 	table, ok := tableNames[typeOfT]

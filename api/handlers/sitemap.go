@@ -18,14 +18,14 @@ func GetSitemap(store storage.Storage) http.HandlerFunc {
 		}
 
 		// TODO: define sitemap type
-		sitemap, err := storage.Get[[]researcher.SitemapUrl](store, userID)
+		sitemap, err := storage.GetAll[researcher.SitemapUrl](store, map[string]string{"id": userID})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		urls := []researcher.SitemapUrl{}
-		for _, url := range *sitemap {
+		for _, url := range sitemap {
 			urls = append(urls, url)
 		}
 

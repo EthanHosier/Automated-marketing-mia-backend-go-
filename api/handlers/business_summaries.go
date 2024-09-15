@@ -10,7 +10,7 @@ import (
 	"github.com/ethanhosier/mia-backend-go/utils"
 )
 
-func BusinessSummaries(store storage.Storage, researcher *researcher.ResearcherClient) http.HandlerFunc {
+func BusinessSummaries(store storage.Storage, rr researcher.Researcher) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := r.Context().Value(utils.UserIdKey).(string)
 		if !ok {
@@ -34,20 +34,36 @@ func BusinessSummaries(store storage.Storage, researcher *researcher.ResearcherC
 			return
 		}
 
-		_, businessSummaries, _, err := researcher.BusinessSummary(req.Url)
+		urls, businessSummaries, _, err := rr.BusinessSummary(req.Url)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// TODO: save sitemap and business summaries to storage
+		u := []researcher.SitemapUrl{}
+		for _, url := range urls {
+			u = append(u, researcher.SitemapUrl{Url: url, ID: userID, UrlEmbedding: []float32{0}})
+		}
+
+		err = storage.StoreAll(store, u)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		businessSummaries.ID = userID
+		err = storage.Store(store, *businessSummaries)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		json.NewEncoder(w).Encode(businessSummaries)
 	}
 }
 
 func GetBusinessSummaries(store storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		userID, ok := r.Context().Value(utils.UserIdKey).(string)
 		if !ok {
 			http.Error(w, "User ID not found in context", http.StatusInternalServerError)
@@ -55,6 +71,11 @@ func GetBusinessSummaries(store storage.Storage) http.HandlerFunc {
 		}
 
 		businessSummary, err := storage.Get[researcher.BusinessSummary](store, userID)
+		if err == storage.NotFoundError {
+			http.Error(w, "Business summary not found", http.StatusNotFound)
+			return
+		}
+
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -102,8 +123,8 @@ func alreadyHasSitemapOrBusinessSummary(store storage.Storage, userID string) bo
 		}
 	}()
 
-	urls, err := storage.Get[[]researcher.SitemapUrl](store, userID)
-	if len(*urls) == 0 || err != nil {
+	urls, err := storage.GetAll[researcher.SitemapUrl](store, map[string]string{"id": userID})
+	if err != nil || len(urls) == 0 {
 		hasSitemap = false
 	}
 

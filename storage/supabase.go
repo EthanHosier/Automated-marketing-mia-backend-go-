@@ -8,8 +8,8 @@ import (
 	"io"
 	"log"
 	"math/rand"
-	"net/http"
 
+	"github.com/ethanhosier/mia-backend-go/http"
 	postgrest_go "github.com/nedpals/postgrest-go/pkg"
 	supa "github.com/nedpals/supabase-go"
 )
@@ -18,10 +18,10 @@ type SupabaseStorage struct {
 	client        *supa.Client
 	url           string
 	serviceKey    string
-	rpcHttpClient *http.Client
+	rpcHttpClient http.Client
 }
 
-func NewSupabaseStorage(client *supa.Client, url string, serviceKey string, rpcHttpClient *http.Client) *SupabaseStorage {
+func NewSupabaseStorage(client *supa.Client, url string, serviceKey string, rpcHttpClient http.Client) *SupabaseStorage {
 
 	return &SupabaseStorage{
 		client:        client,
@@ -38,11 +38,26 @@ func (s *SupabaseStorage) store(table string, data interface{}) (interface{}, er
 	return results, err
 }
 
-func (s *SupabaseStorage) get(table string, id string) (interface{}, error) {
-	var result interface{}
-	err := s.client.DB.From(table).Select("*").Single().Eq("id", id).Execute(&result)
+func (s *SupabaseStorage) storeAll(table string, data []interface{}) ([]interface{}, error) {
+	var results []interface{}
+	err := s.client.DB.From(table).Insert(data).Execute(&results)
 
-	return result, err
+	return results, err
+}
+
+func (s *SupabaseStorage) get(table string, id string) (interface{}, error) {
+	var result []interface{}
+	err := s.client.DB.From(table).Select("*").Limit(1).Eq("id", id).Execute(&result)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, NotFoundError
+	}
+
+	return result, nil
 }
 
 func (s *SupabaseStorage) getRandom(table string, limit int) ([]interface{}, error) {
@@ -92,7 +107,7 @@ func (s *SupabaseStorage) rpc(rpcMethod RpcMethod, payload map[string]interface{
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+	req, err := s.rpcHttpClient.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		log.Println("Error creating request:", err)
 		return nil, err

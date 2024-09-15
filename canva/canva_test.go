@@ -15,7 +15,7 @@ func TestCanvaClient_PopulateTemplate(t *testing.T) {
 	// given
 	var (
 		mockClient  = &http.MockHttpClient{}
-		canvaClient = NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
+		canvaClient = NewClient("testClientID", "testClientSecret", "./test-canva-tokens.json", mockClient, testTokenBufferSecs)
 
 		templateResult = &UpdateTemplateResult{
 			Type: "template_update",
@@ -82,7 +82,7 @@ func TestCanvaClient_UploadImageAssets(t *testing.T) {
 	// given
 	var (
 		mockClient  = &http.MockHttpClient{}
-		canvaClient = NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
+		canvaClient = NewClient("testClientID", "testClientSecret", "./test-canva-tokens.json", mockClient, testTokenBufferSecs)
 
 		images = []string{"http://image1.jpg", "http://image2.jpg"}
 	)
@@ -113,7 +113,7 @@ func TestCanvaClient_UploadColorAssets(t *testing.T) {
 	// given
 	var (
 		mockClient  = &http.MockHttpClient{}
-		canvaClient = NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
+		canvaClient = NewClient("testClientID", "testClientSecret", "./test-canva-tokens.json", mockClient, testTokenBufferSecs)
 
 		colors = []string{"#FFFFFF", "#000000"}
 	)
@@ -134,7 +134,7 @@ func TestCanvaClient_refreshAccessToken(t *testing.T) {
 	// given
 	var (
 		mockClient  = &http.MockHttpClient{}
-		canvaClient = NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
+		canvaClient = NewClient("testClientID", "testClientSecret", "./test-canva-tokens.json", mockClient, testTokenBufferSecs)
 	)
 
 	mockClient.WillReturnBodyRegex("POST", tokenEndpoint+".*", `{"access_token": "newAccessToken", "expires_in": 0, "token_type": "Bearer", "refresh_token": "validRefreshToken"}`)
@@ -151,7 +151,7 @@ func TestCanvaClient_sendAutofillRequest(t *testing.T) {
 	// given
 	var (
 		mockClient  = &http.MockHttpClient{}
-		canvaClient = NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
+		canvaClient = NewClient("testClientID", "testClientSecret", "./test-canva-tokens.json", mockClient, testTokenBufferSecs)
 
 		data = map[string]interface{}{
 			"brand_template_id": "testTemplateID",
@@ -174,7 +174,7 @@ func TestCanvaClient_decodeUpdateTemplateJobResult_Success(t *testing.T) {
 	// given
 	var (
 		mockClient  = &http.MockHttpClient{}
-		canvaClient = NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
+		canvaClient = NewClient("testClientID", "testClientSecret", "./test-canva-tokens.json", mockClient, testTokenBufferSecs)
 
 		templateResult = &UpdateTemplateResult{
 			Type: "template_update",
@@ -236,7 +236,7 @@ func TestCanvaClient_decodeUploadAssetResponse(t *testing.T) {
 	// given
 	var (
 		mockClient  = &http.MockHttpClient{}
-		canvaClient = NewClient("testClientID", "testClientSecret", "./canva-tokens.json", mockClient, testTokenBufferSecs)
+		canvaClient = NewClient("testClientID", "testClientSecret", "./test-canva-tokens.json", mockClient, testTokenBufferSecs)
 
 		expectedAsset = &Asset{
 			ID:        "asset_12345",
