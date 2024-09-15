@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-func (r *Researcher) GoogleAdsKeywordsData(keywords []string) ([]GoogleAdsKeyword, error) {
+func (r *ResearcherClient) GoogleAdsKeywordsData(keywords []string) ([]GoogleAdsKeyword, error) {
 	googleAdsKeywordResponses, err := r.servicesClient.GoogleAdsKeywordsData(keywords)
 	if err != nil {
 		return nil, err
@@ -26,7 +26,7 @@ func (r *Researcher) GoogleAdsKeywordsData(keywords []string) ([]GoogleAdsKeywor
 	return googleAdsKeywords, nil
 }
 
-func (r *Researcher) OptimalKeywords(keywords []GoogleAdsKeyword) (string, string, error) {
+func (r *ResearcherClient) OptimalKeywords(keywords []GoogleAdsKeyword) (string, string, error) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(keywords))
 

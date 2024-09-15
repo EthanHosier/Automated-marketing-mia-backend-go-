@@ -10,7 +10,7 @@ import (
 	"github.com/ethanhosier/mia-backend-go/utils"
 )
 
-func BusinessSummaries(store storage.Storage, researcher *researcher.Researcher) http.HandlerFunc {
+func BusinessSummaries(store storage.Storage, researcher *researcher.ResearcherClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := r.Context().Value(utils.UserIdKey).(string)
 		if !ok {

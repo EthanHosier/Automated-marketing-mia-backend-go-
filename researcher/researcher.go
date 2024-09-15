@@ -16,20 +16,34 @@ const (
 	maxSocialMediaPosts    = 5
 )
 
-type Researcher struct {
+type Researcher interface {
+	Sitemap(url string, timeout int) ([]string, error)
+	BusinessSummary(url string) ([]string, *BusinessSummary, []string, error)
+	ColorsFromUrl(url string) ([]string, error)
+	PageContentsFor(url string) (*PageContents, error)
+	PageBodyTextFor(url string) (string, error)
+	SocialMediaPostsForPlatform(keyword string, plaform SocialMediaPlatform) ([]SocialMediaPost, error)
+	SocialMediaPostsFor(keyword string) ([]SocialMediaPost, error)
+	ResearchReportFor(keyword string, platform SocialMediaPlatform) (string, error)
+	ResearchReportFromPosts(posts []SocialMediaPost) (string, error)
+	GoogleAdsKeywordsData(keywords []string) ([]GoogleAdsKeyword, error)
+	OptimalKeywords(keywords []GoogleAdsKeyword) (string, string, error)
+}
+
+type ResearcherClient struct {
 	servicesClient *services.ServicesClient
 	openaiClient   openai.OpenaiClient
 }
 
-func New(sc *services.ServicesClient, oc openai.OpenaiClient) *Researcher {
+func New(sc *services.ServicesClient, oc openai.OpenaiClient) *ResearcherClient {
 
-	return &Researcher{
+	return &ResearcherClient{
 		servicesClient: sc,
 		openaiClient:   oc,
 	}
 }
 
-func (r *Researcher) Sitemap(url string, timeout int) ([]string, error) {
+func (r *ResearcherClient) Sitemap(url string, timeout int) ([]string, error) {
 	urls, err := r.servicesClient.Sitemap(url, timeout)
 	if err != nil {
 		return nil, err
@@ -39,7 +53,7 @@ func (r *Researcher) Sitemap(url string, timeout int) ([]string, error) {
 	return sitemap, nil
 }
 
-func (r *Researcher) BusinessSummary(url string) ([]string, *BusinessSummary, []string, error) {
+func (r *ResearcherClient) BusinessSummary(url string) ([]string, *BusinessSummary, []string, error) {
 	urls, err := r.Sitemap(url, 15)
 	if err != nil {
 		return nil, nil, nil, err
@@ -76,7 +90,7 @@ func (r *Researcher) BusinessSummary(url string) ([]string, *BusinessSummary, []
 	return urls, businessSummaries, imageUrls, nil
 }
 
-func (r *Researcher) ColorsFromUrl(url string) ([]string, error) {
+func (r *ResearcherClient) ColorsFromUrl(url string) ([]string, error) {
 	screenshotBase64, err := r.servicesClient.PageScreenshot(url)
 
 	if err != nil {
@@ -97,7 +111,7 @@ func (r *Researcher) ColorsFromUrl(url string) ([]string, error) {
 	return colors, nil
 }
 
-func (r *Researcher) PageContentsFor(url string) (*PageContents, error) {
+func (r *ResearcherClient) PageContentsFor(url string) (*PageContents, error) {
 	contents, err := r.servicesClient.PageContentsScrape(url)
 	if err != nil {
 		return nil, err
@@ -110,11 +124,11 @@ func (r *Researcher) PageContentsFor(url string) (*PageContents, error) {
 	}, nil
 }
 
-func (r *Researcher) PageBodyTextFor(url string) (string, error) {
+func (r *ResearcherClient) PageBodyTextFor(url string) (string, error) {
 	return r.servicesClient.ScrapeSinglePageBodyText(url)
 }
 
-func (r *Researcher) SocialMediaPostsForPlatform(keyword string, plaform SocialMediaPlatform) ([]SocialMediaPost, error) {
+func (r *ResearcherClient) SocialMediaPostsForPlatform(keyword string, plaform SocialMediaPlatform) ([]SocialMediaPost, error) {
 	scrapedSocialMedia, err := r.servicesClient.ScrapeSocialMediaFrom(keyword, string(plaform), maxSocialMediaPosts)
 	if err != nil {
 		return nil, err
@@ -134,7 +148,7 @@ func (r *Researcher) SocialMediaPostsForPlatform(keyword string, plaform SocialM
 	return socialMediaPosts, nil
 }
 
-func (r *Researcher) SocialMediaPostsFor(keyword string) ([]SocialMediaPost, error) {
+func (r *ResearcherClient) SocialMediaPostsFor(keyword string) ([]SocialMediaPost, error) {
 	platforms := []SocialMediaPlatform{Instagram, Facebook, LinkedIn, Google, News}
 
 	resultsChan := make(chan []SocialMediaPost)
@@ -174,7 +188,7 @@ func (r *Researcher) SocialMediaPostsFor(keyword string) ([]SocialMediaPost, err
 	}
 }
 
-func (r *Researcher) ResearchReportFor(keyword string, platform SocialMediaPlatform) (string, error) {
+func (r *ResearcherClient) ResearchReportFor(keyword string, platform SocialMediaPlatform) (string, error) {
 	socialMediaPosts, err := r.SocialMediaPostsForPlatform(keyword, platform)
 	if err != nil {
 		return "", err
@@ -185,7 +199,7 @@ func (r *Researcher) ResearchReportFor(keyword string, platform SocialMediaPlatf
 	return r.openaiClient.ChatCompletion(context.TODO(), researchReportPrompt, openai.GPT4oMini)
 }
 
-func (r *Researcher) ResearchReportFromPosts(posts []SocialMediaPost) (string, error) {
+func (r *ResearcherClient) ResearchReportFromPosts(posts []SocialMediaPost) (string, error) {
 	if len(posts) == 0 {
 		return "", errors.New("no posts provided")
 	}
@@ -198,7 +212,7 @@ func (r *Researcher) ResearchReportFromPosts(posts []SocialMediaPost) (string, e
 }
 
 // TODO: use Task and asyncGet abstraction here
-func (r *Researcher) scrapeWebsitePages(urls []string) ([]string, []string, error) {
+func (r *ResearcherClient) scrapeWebsitePages(urls []string) ([]string, []string, error) {
 	n := len(urls)
 
 	pageWg := sync.WaitGroup{}
@@ -246,7 +260,7 @@ func (r *Researcher) scrapeWebsitePages(urls []string) ([]string, []string, erro
 	return images, pageContents, nil
 }
 
-func (r *Researcher) businessSummaryPoints(jsonString string) (*BusinessSummary, error) {
+func (r *ResearcherClient) businessSummaryPoints(jsonString string) (*BusinessSummary, error) {
 	completion, err := r.openaiClient.ChatCompletion(context.TODO(), openai.BusinessSummaryPrompt+jsonString, openai.GPT4o)
 
 	if err != nil {

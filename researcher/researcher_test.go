@@ -335,7 +335,6 @@ func TestSocialMediaPostsFor(t *testing.T) {
 	// then
 	require.NoError(t, err)
 
-	// Flattening the expected posts map into a single slice for comparison
 	var expectedPostsFlat []SocialMediaPost
 	for _, posts := range expectedPosts {
 		expectedPostsFlat = append(expectedPostsFlat, posts...)

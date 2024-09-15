@@ -219,3 +219,148 @@ func TestResearchReportFromPostsWillReturnError(t *testing.T) {
 	assert.Equal(t, expectedError, err)
 	assert.Empty(t, result)
 }
+
+// Test successful post fetching for all platforms
+func TestSocialMediaPostsFor_Success(t *testing.T) {
+	mockResearcher := NewMockResearcher()
+
+	instagramPosts := []SocialMediaPost{{Content: "Instagram Post 1"}, {Content: "Instagram Post 2"}}
+	facebookPosts := []SocialMediaPost{{Content: "Facebook Post 1"}}
+	linkedinPosts := []SocialMediaPost{{Content: "LinkedIn Post 1"}, {Content: "LinkedIn Post 2"}}
+
+	posts := append(instagramPosts, facebookPosts...)
+	posts = append(posts, linkedinPosts...)
+
+	// Set mock results for platforms
+	mockResearcher.SocialMediaPostsForWillReturn("fashion", posts, nil)
+
+	// Test
+	result, err := mockResearcher.SocialMediaPostsFor("fashion")
+
+	assert.NoError(t, err, "expected no error but got one")
+	assert.ElementsMatch(t, posts, result, "expected posts to match")
+}
+
+// Test fetching posts with one platform returning an error
+func TestSocialMediaPostsFor_PartialError(t *testing.T) {
+	mockResearcher := NewMockResearcher()
+
+	posts := []SocialMediaPost{{Content: "Instagram Post 1"}, {Content: "Facebook Post 1"}}
+
+	// Set mock results for platforms
+	mockResearcher.SocialMediaPostsForWillReturn("fashion", posts, nil)
+
+	// Test
+	result, err := mockResearcher.SocialMediaPostsFor("fashion")
+
+	assert.NoError(t, err, "expected no error but got one")
+	assert.ElementsMatch(t, result, posts, "expected posts to match")
+}
+
+// Test when no results are set for one platform
+func TestSocialMediaPostsFor_NoResultsForPlatform(t *testing.T) {
+	mockResearcher := NewMockResearcher()
+	instagramPosts := []SocialMediaPost{{Content: "Instagram Post 1"}}
+
+	// Set mock results only for Instagram
+	mockResearcher.SocialMediaPostsForWillReturn("fashion", instagramPosts, nil)
+
+	// Test
+	posts, err := mockResearcher.SocialMediaPostsFor("fashion")
+	assert.NoError(t, err, "expected no error but got one")
+	assert.ElementsMatch(t, instagramPosts, posts, "expected posts to match")
+}
+
+// Test if an error is returned when no results are set for any platform
+func TestSocialMediaPostsFor_NoResultsError(t *testing.T) {
+	mockResearcher := NewMockResearcher()
+
+	// Test
+	_, err := mockResearcher.SocialMediaPostsFor("fashion")
+
+	assert.Error(t, err, "expected an error but got none")
+	assert.Equal(t, "no result set for SocialMediaPostsFor", err.Error(), "unexpected error message")
+}
+
+func TestKeywordsToString(t *testing.T) {
+	keywords := []GoogleAdsKeyword{{Keyword: "keyword1"}, {Keyword: "keyword2"}, {Keyword: "keyword3"}}
+	expected := "keyword1,keyword2,keyword3"
+
+	result := keywordsToString(keywords)
+
+	assert.Equal(t, expected, result)
+}
+
+func TestGoogleAdsKeywordsData_Success(t *testing.T) {
+	mockResearcher := NewMockResearcher()
+
+	keywords := []string{"fashion", "style"}
+	googleAdsKeywords := []GoogleAdsKeyword{
+		{Keyword: "fashion", AvgMonthlySearches: 1000, CompetitionLevel: "High", CompetitionIndex: 5, LowTopOfPageBid: 10, HighTopOfPageBid: 20},
+		{Keyword: "style", AvgMonthlySearches: 500, CompetitionLevel: "Medium", CompetitionIndex: 3, LowTopOfPageBid: 5, HighTopOfPageBid: 15},
+	}
+
+	mockResearcher.GoogleAdsKeywordsDataWillReturn(keywords, googleAdsKeywords, nil)
+
+	// Test
+	result, err := mockResearcher.GoogleAdsKeywordsData(keywords)
+
+	assert.NoError(t, err, "expected no error but got one")
+	assert.ElementsMatch(t, googleAdsKeywords, result, "expected Google Ads keywords data to match")
+}
+
+// Test GoogleAdsKeywordsData with an error
+func TestGoogleAdsKeywordsData_Error(t *testing.T) {
+	mockResearcher := NewMockResearcher()
+
+	keywords := []string{"fashion", "style"}
+	mockResearcher.GoogleAdsKeywordsDataWillReturn(keywords, nil, errors.New("failed to fetch Google Ads data"))
+
+	// Test
+	result, err := mockResearcher.GoogleAdsKeywordsData(keywords)
+
+	assert.Error(t, err, "expected an error but got none")
+	assert.Equal(t, "failed to fetch Google Ads data", err.Error(), "unexpected error message")
+	assert.Nil(t, result, "expected result to be nil")
+}
+
+// Test OptimalKeywords with successful result
+func TestOptimalKeywords_Success(t *testing.T) {
+	mockResearcher := NewMockResearcher()
+
+	keywords := []GoogleAdsKeyword{
+		{Keyword: "fashion", AvgMonthlySearches: 1000, CompetitionLevel: "High", CompetitionIndex: 5, LowTopOfPageBid: 10, HighTopOfPageBid: 20},
+		{Keyword: "style", AvgMonthlySearches: 500, CompetitionLevel: "Medium", CompetitionIndex: 3, LowTopOfPageBid: 5, HighTopOfPageBid: 15},
+	}
+
+	primaryKeyword := "fashion"
+	secondaryKeyword := "style"
+
+	mockResearcher.OptimalKeywordsWillReturn(keywords, primaryKeyword, secondaryKeyword, nil)
+
+	// Test
+	pKeyword, sKeyword, err := mockResearcher.OptimalKeywords(keywords)
+
+	assert.NoError(t, err, "expected no error but got one")
+	assert.Equal(t, primaryKeyword, pKeyword, "expected primary keyword to match")
+	assert.Equal(t, secondaryKeyword, sKeyword, "expected secondary keyword to match")
+}
+
+// Test OptimalKeywords with an error
+func TestOptimalKeywords_Error(t *testing.T) {
+	mockResearcher := NewMockResearcher()
+
+	keywords := []GoogleAdsKeyword{
+		{Keyword: "fashion", AvgMonthlySearches: 1000, CompetitionLevel: "High", CompetitionIndex: 5, LowTopOfPageBid: 10, HighTopOfPageBid: 20},
+	}
+
+	mockResearcher.OptimalKeywordsWillReturn(keywords, "", "", errors.New("failed to determine optimal keywords"))
+
+	// Test
+	primaryKeyword, secondaryKeyword, err := mockResearcher.OptimalKeywords(keywords)
+
+	assert.Error(t, err, "expected an error but got none")
+	assert.Equal(t, "failed to determine optimal keywords", err.Error(), "unexpected error message")
+	assert.Empty(t, primaryKeyword, "expected primary keyword to be empty")
+	assert.Empty(t, secondaryKeyword, "expected secondary keyword to be empty")
+}
