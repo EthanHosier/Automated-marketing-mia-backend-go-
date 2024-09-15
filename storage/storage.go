@@ -20,7 +20,7 @@ const (
 var tableNames = map[reflect.Type]string{
 	reflect.TypeOf(Template{}):                   "canva_templates",
 	reflect.TypeOf(researcher.BusinessSummary{}): "businessSummaries",
-	// reflect.TypeOf(researcher.SitemapUrl):        "sitemaps", // change this to have the actual sitemap info stuff
+	reflect.TypeOf(researcher.SitemapUrl{}):      "sitemaps",
 }
 
 var rpcMethods = map[RpcMethod]string{
@@ -34,6 +34,7 @@ type Storage interface {
 	storeAll(table string, data []interface{}) ([]interface{}, error)
 
 	get(table string, id string) (interface{}, error)
+	getAll(table string, matchingFields map[string]string) ([]interface{}, error)
 	getRandom(table string, limit int) ([]interface{}, error)
 	// todo: getAll with map[string]interface{} which returns all rows matching these fields
 
@@ -64,6 +65,26 @@ func GetRandom[T any](storage Storage, limit int) ([]T, error) {
 	}
 
 	data, err := storage.getRandom(table, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]T, len(data))
+	for i, d := range data {
+		ret[i] = d.(T)
+	}
+
+	return ret, nil
+}
+
+func GetAll[T any](storage Storage, matchingFields map[string]string) ([]T, error) {
+	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
+	table, ok := tableNames[typeOfT]
+	if !ok {
+		return nil, fmt.Errorf("table not found for type %v", typeOfT)
+	}
+
+	data, err := storage.getAll(table, matchingFields)
 	if err != nil {
 		return nil, err
 	}

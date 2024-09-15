@@ -43,6 +43,42 @@ func TestGetRandom(t *testing.T) {
 	}
 }
 
+func TestGetAll(t *testing.T) {
+	// given
+	var (
+		storage   = NewInMemoryStorage()
+		template1 = Template{ID: "1", Title: "Template 1"}
+		template2 = Template{ID: "2", Title: "Template 2"}
+		template3 = Template{ID: "3", Title: "Template 3"}
+	)
+
+	// when
+	Store(storage, template1)
+	Store(storage, template2)
+	Store(storage, template3)
+
+	results, err := GetAll[Template](storage, nil)
+
+	// then
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("expected 3 results, got: %d", len(results))
+	}
+
+	expected := []Template{template1, template2, template3}
+	for i, result := range results {
+		if result.ID != expected[i].ID {
+			t.Errorf("unexpected template at index %d: got %+v, want %+v", i, result, expected[i])
+		}
+
+		if result.Title != expected[i].Title {
+			t.Errorf("unexpected template at index %d: got %+v, want %+v", i, result, expected[i])
+		}
+	}
+}
+
 func TestUpdate(t *testing.T) {
 	storage := NewInMemoryStorage()
 

@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net/http"
 
+	postgrest_go "github.com/nedpals/postgrest-go/pkg"
 	supa "github.com/nedpals/supabase-go"
 )
 
@@ -54,6 +55,20 @@ func (s *SupabaseStorage) getRandom(table string, limit int) ([]interface{}, err
 
 	l := min(len(results), limit)
 	return results[:l], err
+}
+
+func (s *SupabaseStorage) getAll(table string, matchingFields map[string]string) ([]interface{}, error) {
+	var results []interface{}
+
+	initial_query := s.client.DB.From(table).Select("*")
+	var query *postgrest_go.FilterRequestBuilder
+	for k, v := range matchingFields {
+		query = initial_query.Eq(k, v)
+	}
+
+	err := query.Execute(&results)
+
+	return results, err
 }
 
 func (s *SupabaseStorage) update(table string, id string, updateFields map[string]interface{}) (interface{}, error) {

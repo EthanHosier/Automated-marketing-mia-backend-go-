@@ -107,6 +107,32 @@ func (s *InMemoryStorage) getRandom(table string, limit int) ([]interface{}, err
 	return result, nil
 }
 
+func (s *InMemoryStorage) getAll(table string, matchingFields map[string]string) ([]interface{}, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var results []interface{}
+	for _, item := range s.data[table] {
+		// Check if all matching fields are equal
+		match := true
+		for field, value := range matchingFields {
+			fieldValue := reflect.ValueOf(item).FieldByName(field)
+			if !fieldValue.IsValid() {
+				return nil, fmt.Errorf("field %s not found", field)
+			}
+			if fieldValue.Interface() != value {
+				match = false
+				break
+			}
+		}
+
+		if match {
+			results = append(results, item)
+		}
+	}
+	return results, nil
+}
+
 func (s *InMemoryStorage) update(table string, id string, updateFields map[string]interface{}) (interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
