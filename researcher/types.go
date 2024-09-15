@@ -3,6 +3,7 @@ package researcher
 import "github.com/ethanhosier/mia-backend-go/services"
 
 type BusinessSummary struct {
+	ID              string   `json:"id"`
 	BusinessName    string   `json:"businessName"`
 	BusinessSummary string   `json:"businessSummary"`
 	BrandVoice      string   `json:"brandVoice"`
@@ -49,3 +50,5 @@ const (
 	Google    SocialMediaPlatform = "google"
 	News      SocialMediaPlatform = "news"
 )
+
+var SocialMediaPlatforms = []SocialMediaPlatform{Instagram, Facebook, LinkedIn, Google, News}
