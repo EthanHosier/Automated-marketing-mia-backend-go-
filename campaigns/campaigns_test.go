@@ -459,3 +459,74 @@ func TestInitFields(t *testing.T) {
 	assert.Equal(t, textFields[0].Value, textRes[0].Text)
 	assert.Equal(t, textFields[1].Value, textRes[1].Text)
 }
+
+func TestTemplatePlan(t *testing.T) {
+	var (
+		op = openai.MockOpenaiClient{}
+		c  = NewCampaignClient(&op, nil, nil, nil)
+
+		templatePrompt        = "template prompt"
+		extractedTemplateJSON = `{
+			"platform": "instagram",
+			"fields": [
+				{
+					"name": "field1",
+					"value": "value1",
+					"type": "text"
+				},
+				{
+					"name": "field2",
+					"value": "value2",
+					"type": "image"
+				}
+			],
+			"colors": [
+				{
+					"name": "primaryColor",
+					"color": "#FF5733"
+				},
+				{
+					"name": "secondaryColor",
+					"color": "#33FF57"
+				}
+			],
+			"caption": "This is a sample caption."
+		}`
+
+		extractedTemplate = ExtractedTemplate{
+			Platform: "instagram",
+			Fields: []PopulatedField{
+				{
+					Name:  "field1",
+					Value: "value1",
+					Type:  TextType,
+				},
+				{
+					Name:  "field2",
+					Value: "value2",
+					Type:  ImageType,
+				},
+			},
+			ColorFields: []PopulatedColorField{
+				{
+					Name:  "primaryColor",
+					Color: "#FF5733",
+				},
+				{
+					Name:  "secondaryColor",
+					Color: "#33FF57",
+				},
+			},
+			Caption: "This is a sample caption.",
+		}
+	)
+
+	// given
+	op.WillReturnChatCompletion(templatePrompt, openai.GPT4o, extractedTemplateJSON)
+
+	// when
+	res, err := c.templatePlan(templatePrompt)
+
+	assert.NoError(t, err)
+	assert.Equal(t, *res, extractedTemplate)
+}
