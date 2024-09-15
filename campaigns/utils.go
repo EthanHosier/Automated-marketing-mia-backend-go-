@@ -1,8 +1,6 @@
 package campaigns
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/ethanhosier/mia-backend-go/openai"
@@ -11,31 +9,9 @@ import (
 	"github.com/ethanhosier/mia-backend-go/utils"
 )
 
-type themeWithSuggestedKeywords struct {
-	Theme                         string   `json:"theme"`
-	Keywords                      []string `json:"keywords"`
-	Url                           string   `json:"url"`
-	SelectedUrl                   string   `json:"selectedUrl"`
-	ImageCanvaTemplateDescription string   `json:"imageCanvaTemplateDescription"`
-}
-
-func (c *CampaignClient) themes(themePrompt string) ([]themeWithSuggestedKeywords, error) {
-	completion, err := c.openaiClient.ChatCompletion(context.TODO(), themePrompt, openai.GPT4oMini)
-
-	if err != nil {
-		return nil, err
-	}
-
-	extractedArr := openai.ExtractJsonData(completion, openai.JSONArray)
-
-	var themes []themeWithSuggestedKeywords
-	err = json.Unmarshal([]byte(extractedArr), &themes)
-	if err != nil {
-		return nil, err
-	}
-
-	return themes, nil
-}
+const (
+	maxScrapedPageBodyTextCharCount = 4000
+)
 
 func templatePrompt(platform researcher.SocialMediaPlatform, businessSummary researcher.BusinessSummary, theme string, primaryKeyword string, secondaryKeyword string, url string, scrapedPageBodyText string, scrapedSocialMediaPosts []researcher.SocialMediaPost, fields []storage.TemplateFields, colorFields []storage.ColorField) string {
 
