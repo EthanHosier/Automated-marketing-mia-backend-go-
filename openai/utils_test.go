@@ -19,9 +19,9 @@ func TestExtractJsonData(t *testing.T) {
 		},
 		{
 			name:     "Extract JSON Array",
-			input:    `["value1","value2","value3"]`,
+			input:    `["value1", "value2", "value3"]`,
 			typ:      JSONArray,
-			expected: `["value1","value2","value3"]`,
+			expected: `["value1", "value2", "value3"]`,
 		},
 		{
 			name:     "No JSON Object",
@@ -42,13 +42,19 @@ func TestExtractJsonData(t *testing.T) {
 				"key2": "value2"
 			}`,
 			typ:      JSONObj,
-			expected: `{"key1":"value1","key2":"value2"}`,
+			expected: `{"key1": "value1", "key2": "value2"}`,
 		},
 		{name: "JSON Object with spaces",
 
-			input:    `{"key1": "value1","key2": "value2"}`,
+			input:    `{"key1": "value1", "key2": "value2"}`,
 			typ:      JSONObj,
-			expected: `{"key1":"value1","key2":"value2"}`,
+			expected: `{"key1": "value1", "key2": "value2"}`,
+		},
+		{name: "JSON Object with values of multiple sentences spaces",
+
+			input:    `{"key1": "value1 yeah idk", "key2": "value2"}`,
+			typ:      JSONObj,
+			expected: `{"key1": "value1 yeah idk", "key2": "value2"}`,
 		},
 		{
 			name: "JSON Array with New Lines",
@@ -58,7 +64,7 @@ func TestExtractJsonData(t *testing.T) {
 				"value3"
 			]`,
 			typ:      JSONArray,
-			expected: `["value1","value2","value3"]`,
+			expected: `["value1", "value2", "value3"]`,
 		},
 		{
 			name:     "Empty Input",

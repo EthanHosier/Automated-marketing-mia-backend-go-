@@ -2,6 +2,7 @@ package openai
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 )
 
@@ -15,7 +16,7 @@ const (
 // ExtractJsonData extracts a JSON object or array from a string
 func ExtractJsonData(jsonString string, typ JsonDataType) string {
 	// Remove new lines and excessive spaces
-	jsonString = strings.Join(strings.Fields(jsonString), "")
+	jsonString = cleanJsonString(jsonString)
 
 	open, close := getBrackets(typ)
 
@@ -38,6 +39,26 @@ func ExtractJsonData(jsonString string, typ JsonDataType) string {
 		return result
 	}
 	return ""
+}
+
+func cleanJsonString(input string) string {
+	// Define regex patterns for matching the cases
+	pattern := `(\[\s*")|(")\s*(\])|(\{\s*")|(")\s*(\})`
+
+	// Replace newlines, carriage returns, and tabs with nothing in matched patterns
+	re := regexp.MustCompile(pattern)
+	cleanedString := re.ReplaceAllStringFunc(input, func(match string) string {
+		// Replace newlines, carriage returns, and tabs within the matched pattern
+		match = strings.ReplaceAll(match, "\n", "")
+		match = strings.ReplaceAll(match, "\r", "")
+		match = strings.ReplaceAll(match, "\t", "")
+		return match
+	})
+
+	// Replace multiple spaces with a single space
+	cleanedString = regexp.MustCompile(`\s+`).ReplaceAllString(cleanedString, " ")
+
+	return cleanedString
 }
 
 func getBrackets(typ JsonDataType) (string, string) {
