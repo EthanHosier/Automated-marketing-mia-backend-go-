@@ -193,6 +193,102 @@ func TestThemes(t *testing.T) {
 	assert.Equal(t, theme2, res[1])
 }
 
+func TestGenerateThemes(t *testing.T) {
+	// given
+	var (
+		op = openai.MockOpenaiClient{}
+		r  = researcher.NewMockResearcher()
+		c  = NewCampaignClient(&op, r, nil, nil)
+
+		theme1 = themeWithSuggestedKeywords{
+			Theme:                         "Modern",
+			Keywords:                      []string{"sleek", "contemporary", "minimal"},
+			Url:                           "https://example.com/modern",
+			SelectedUrl:                   "https://example.com/modern/selected",
+			ImageCanvaTemplateDescription: "A modern and sleek design template.",
+		}
+
+		theme2 = themeWithSuggestedKeywords{
+			Theme:                         "Vintage",
+			Keywords:                      []string{"retro", "classic", "timeless"},
+			Url:                           "https://example.com/vintage",
+			SelectedUrl:                   "https://example.com/vintage/selected",
+			ImageCanvaTemplateDescription: "A vintage and classic design template.",
+		}
+
+		adsKeywords1 = []researcher.GoogleAdsKeyword{
+			{
+				Keyword:            "sleek",
+				AvgMonthlySearches: 100,
+				CompetitionLevel:   "low",
+				CompetitionIndex:   1,
+				LowTopOfPageBid:    1,
+				HighTopOfPageBid:   2,
+			},
+		}
+
+		adsKeywords2 = []researcher.GoogleAdsKeyword{
+			{
+				Keyword:            "retro",
+				AvgMonthlySearches: 100,
+				CompetitionLevel:   "low",
+				CompetitionIndex:   1,
+				LowTopOfPageBid:    1,
+				HighTopOfPageBid:   2,
+			},
+		}
+
+		themesStr = `[
+				{
+						"theme": "Modern",
+						"keywords": ["sleek", "contemporary", "minimal"],
+						"url": "https://example.com/modern",
+						"selectedUrl": "https://example.com/modern/selected",
+						"imageCanvaTemplateDescription": "A modern and sleek design template."
+				},
+				{
+						"theme": "Vintage",
+						"keywords": ["retro", "classic", "timeless"],
+						"url": "https://example.com/vintage",
+						"selectedUrl": "https://example.com/vintage/selected",
+						"imageCanvaTemplateDescription": "A vintage and classic design template."
+				}
+		]`
+
+		pageContents    = []researcher.PageContents{}
+		businessSummary = &researcher.BusinessSummary{}
+		themePrompt     = fmt.Sprintf(openai.ThemeGenerationPrompt, businessSummary, pageContents, businessSummary.TargetRegion, "", "")
+	)
+
+	op.WillReturnChatCompletion(themePrompt, openai.GPT4oMini, themesStr)
+
+	r.GoogleAdsKeywordsDataWillReturn(theme1.Keywords, adsKeywords1, nil)
+	r.GoogleAdsKeywordsDataWillReturn(theme2.Keywords, adsKeywords2, nil)
+
+	r.OptimalKeywordsWillReturn(adsKeywords1, "prim1", "sec1", nil)
+	r.OptimalKeywordsWillReturn(adsKeywords2, "prim1", "sec2", nil)
+
+	// when
+	res, err := c.generateThemes(pageContents, businessSummary)
+
+	// then
+	assert.NoError(t, err)
+	assert.Len(t, res, 2)
+	assert.Equal(t, theme1.Theme, res[0].Theme)
+	assert.Equal(t, "prim1", res[0].PrimaryKeyword)
+	assert.Equal(t, "sec1", res[0].SecondaryKeyword)
+	assert.Equal(t, theme1.Url, res[0].Url)
+	assert.Equal(t, theme1.SelectedUrl, res[0].SelectedUrl)
+	assert.Equal(t, theme1.ImageCanvaTemplateDescription, res[0].ImageCanvaTemplateDescription)
+
+	assert.Equal(t, theme2.Theme, res[1].Theme)
+	assert.Equal(t, "prim1", res[1].PrimaryKeyword)
+	assert.Equal(t, "sec2", res[1].SecondaryKeyword)
+	assert.Equal(t, theme2.Url, res[1].Url)
+	assert.Equal(t, theme2.SelectedUrl, res[1].SelectedUrl)
+	assert.Equal(t, theme2.ImageCanvaTemplateDescription, res[1].ImageCanvaTemplateDescription)
+}
+
 func TestInitColorFields(t *testing.T) {
 	// given
 	var (

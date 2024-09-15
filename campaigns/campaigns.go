@@ -34,6 +34,7 @@ func NewCampaignClient(openaiClient openai.OpenaiClient, researcher researcher.R
 	}
 }
 
+// TODO: move everything else other than this and the below to another file (campaign helper)
 func (c *CampaignClient) GenerateThemesForUser(userID string) ([]CampaignTheme, error) {
 	candidatePageContents, err := c.getCandidatePageContentsForUser(userID, numberOfThemes)
 	if err != nil {
@@ -48,6 +49,7 @@ func (c *CampaignClient) GenerateThemesForUser(userID string) ([]CampaignTheme, 
 	return c.generateThemes(candidatePageContents, businessSummary)
 }
 
+// TODO: move everything else other than this and the above to another file (campaign helper)
 func (c *CampaignClient) CampaignFrom(theme CampaignTheme, businessSummary *researcher.BusinessSummary) (*canva.Design, *string, error) {
 
 	scrapedPageBodyTask := utils.DoAsync[string](func() (string, error) {

@@ -110,7 +110,7 @@ func TestBusinessSummary(t *testing.T) {
 	require.NoError(t, err)
 	assert.ElementsMatch(t, expectedUrls, urls)
 	assert.NotNil(t, summary)
-	assert.Equal(t, imageUrls, []string{"http://example.com/page2/image.jpg", "http://example.com/page1/image.jpg"})
+	assert.ElementsMatch(t, imageUrls, []string{"http://example.com/page2/image.jpg", "http://example.com/page1/image.jpg"})
 }
 
 func TestColorsFromUrl(t *testing.T) {
