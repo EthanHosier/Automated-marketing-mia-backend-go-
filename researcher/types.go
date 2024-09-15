@@ -13,9 +13,8 @@ type BusinessSummary struct {
 }
 
 type SitemapUrl struct {
-	ID           string    `json:"id"`
-	Url          string    `json:"url"`
-	UrlEmbedding []float32 `json:"url_embedding"`
+	ID  string `json:"id"`
+	Url string `json:"url"`
 }
 
 type PageContents struct {

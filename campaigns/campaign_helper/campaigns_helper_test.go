@@ -94,9 +94,8 @@ func TestCandidatePagesForUser(t *testing.T) {
 
 		userID     = "user1"
 		sitemapUrl = researcher.SitemapUrl{
-			ID:           "id1",
-			Url:          "url1",
-			UrlEmbedding: []float32{1.0},
+			ID:  "id1",
+			Url: "url1",
 		}
 
 		pageContents = []researcher.PageContents{
@@ -519,14 +518,59 @@ func TestTemplatePlan(t *testing.T) {
 			},
 			Caption: "This is a sample caption.",
 		}
+
+		templateToFill = storage.Template{
+			Fields: []storage.TemplateFields{
+				{
+					Name:          "field1",
+					Type:          "text",
+					MaxCharacters: 900,
+				},
+			},
+		}
 	)
 
 	// given
 	op.WillReturnChatCompletion(templatePrompt, openai.GPT4o, extractedTemplateJSON)
 
 	// when
-	res, err := c.TemplatePlan(templatePrompt)
+	res, err := c.TemplatePlan(templatePrompt, templateToFill)
 
 	assert.NoError(t, err)
 	assert.Equal(t, *res, extractedTemplate)
+}
+
+func TestRephraseTextFieldCharsWithRetry(t *testing.T) {
+	// given
+	var (
+		op = openai.MockOpenaiClient{}
+		c  = NewCampaignHelperClient(&op, nil, nil, nil)
+
+		text      = "This is a sample text."
+		shortText = "short"
+		maxChars  = len(text) - 1
+
+		populatedField = PopulatedField{
+			Name:  "field1",
+			Value: text,
+			Type:  TextType,
+		}
+
+		expectedTextFields = PopulatedField{
+			Name:  "field1",
+			Value: shortText,
+			Type:  TextType,
+		}
+	)
+
+	prompt1 := fmt.Sprintf(openai.MaxCharsPrompt, maxChars, populatedField.Value)
+
+	op.WillReturnChatCompletion(prompt1, openai.GPT4o, shortText)
+
+	// when
+	res, err := c.rephraseTextFieldCharsWithRetry(maxChars, &populatedField)
+
+	// then
+	assert.NoError(t, err)
+	assert.Equal(t, expectedTextFields, *res)
 }

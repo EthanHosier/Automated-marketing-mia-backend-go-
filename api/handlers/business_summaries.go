@@ -42,7 +42,7 @@ func BusinessSummaries(store storage.Storage, rr researcher.Researcher) http.Han
 
 		u := []researcher.SitemapUrl{}
 		for _, url := range urls {
-			u = append(u, researcher.SitemapUrl{Url: url, ID: userID, UrlEmbedding: []float32{0}})
+			u = append(u, researcher.SitemapUrl{Url: url, ID: userID})
 		}
 
 		err = storage.StoreAll(store, u)

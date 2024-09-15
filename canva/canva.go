@@ -281,8 +281,7 @@ func (c *CanvaHttpClient) decodeUpdateTemplateJobResult(jobID string) (*UpdateTe
 			return nil, fmt.Errorf("error decoding response body: %v", err)
 		}
 
-		slog.Info("Decoded update template response", "updateTemplateResponseStatus", jobStatusResponse.Job.Status)
-
+		// slog.Info("Decoded update template response", "updateTemplateResponseStatus", jobStatusResponse.Job.Status)
 	}
 
 	if jobStatusResponse.Job.Status == "failed" {
@@ -332,8 +331,6 @@ func (c *CanvaHttpClient) sendUploadAssetRequest(asset []byte, name string) (*ne
 		return nil, fmt.Errorf("error sending request: %v", err)
 	}
 
-	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("received non-OK response: %s", body)
@@ -343,6 +340,8 @@ func (c *CanvaHttpClient) sendUploadAssetRequest(asset []byte, name string) (*ne
 }
 
 func (c *CanvaHttpClient) decodeUploadAssetResponse(resp *net_http.Response) (*Asset, error) {
+	defer resp.Body.Close()
+
 	var uploadAssetResponse UploadAssetResponse
 	if err := json.NewDecoder(resp.Body).Decode(&uploadAssetResponse); err != nil {
 		return nil, fmt.Errorf("error decoding response body: %v", err)
@@ -378,7 +377,7 @@ func (c *CanvaHttpClient) decodeUploadAssetResponse(resp *net_http.Response) (*A
 			return nil, fmt.Errorf("error decoding response body: %v", err)
 		}
 
-		slog.Info("Decoded upload asset response", "AssetUploadStatus", uploadAssetResponse.Job.Status)
+		// slog.Info("Decoded upload asset response", "AssetUploadStatus", uploadAssetResponse.Job.Status)
 	}
 
 	if uploadAssetResponse.Job.Status == "failed" {
@@ -436,7 +435,7 @@ func (c *CanvaHttpClient) downloadAndUploadImageAsset(image string) (*Asset, err
 func (c *CanvaHttpClient) downloadImage(imageURL string) ([]byte, error) {
 	resp, err := c.httpClient.Get(imageURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting image %s:  %v", imageURL, err)
 	}
 	defer resp.Body.Close()
 

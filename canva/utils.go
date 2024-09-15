@@ -17,7 +17,7 @@ func hexToColor(hex string) (color.Color, error) {
 	}
 
 	if len(hex) != 6 {
-		return nil, fmt.Errorf("invalid hex color format")
+		return nil, fmt.Errorf("invalid hex color format: %v", hex)
 	}
 
 	r, err := strconv.ParseUint(hex[0:2], 16, 8)

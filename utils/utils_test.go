@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -32,7 +33,7 @@ func TestFirstNumberInString_NoNumber(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected an error, got nil")
 	}
-	if err.Error() != "no number found in the string" {
+	if !strings.Contains(err.Error(), "no number found in the string") {
 		t.Fatalf("expected error 'no number found in the string', got: %v", err)
 	}
 }

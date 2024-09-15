@@ -16,13 +16,18 @@ type OpenaiClient interface {
 
 type GoOpenaiClient struct {
 	client  *openai.Client
-	usageCh chan openai.Usage
+	usageCh chan UsageData
+}
+
+type UsageData struct {
+	openai.Usage
+	prompt string
 }
 
 func NewOpenaiClient(apiKey string) *GoOpenaiClient {
 	var (
 		openaiClient = openai.NewClient(apiKey)
-		usageCh      = make(chan openai.Usage)
+		usageCh      = make(chan UsageData)
 	)
 
 	go usageLoop(usageCh)
@@ -33,9 +38,9 @@ func NewOpenaiClient(apiKey string) *GoOpenaiClient {
 	}
 }
 
-func usageLoop(usageCh chan openai.Usage) {
+func usageLoop(usageCh chan UsageData) {
 	for usage := range usageCh {
-		slog.Info("Openai request completed", "prompt_tokens", usage.PromptTokens, "completion_tokens", usage.CompletionTokens, "total_tokens", usage.TotalTokens)
+		slog.Info("Openai request completed", "prompt_tokens", usage.PromptTokens, "completion_tokens", usage.CompletionTokens, "total_tokens", usage.TotalTokens, "prompt", fmt.Sprintf("%s...", usage.prompt[:min(len(usage.prompt), 40)]))
 	}
 }
 
@@ -57,7 +62,7 @@ func (oc *GoOpenaiClient) ChatCompletion(ctx context.Context, prompt string, mod
 		return "", err
 	}
 
-	oc.usageCh <- resp.Usage
+	oc.usageCh <- UsageData{resp.Usage, prompt}
 	return resp.Choices[0].Message.Content, nil
 }
 
@@ -96,7 +101,7 @@ func (oc *GoOpenaiClient) ImageCompletion(ctx context.Context, prompt string, im
 		return "", err
 	}
 
-	oc.usageCh <- resp.Usage
+	oc.usageCh <- UsageData{resp.Usage, prompt}
 	return resp.Choices[0].Message.Content, nil
 }
 
@@ -118,6 +123,6 @@ func (oc *GoOpenaiClient) Embeddings(urls []string) ([][]float32, error) {
 		embeddings = append(embeddings, embedding.Embedding)
 	}
 
-	oc.usageCh <- queryResponse.Usage
+	oc.usageCh <- UsageData{queryResponse.Usage, "vector embedding"}
 	return embeddings, nil
 }

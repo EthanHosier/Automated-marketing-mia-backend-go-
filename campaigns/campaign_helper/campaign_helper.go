@@ -19,7 +19,7 @@ const (
 type CampaignHelper interface {
 	GetCandidatePageContentsForUser(userID string, n int) ([]researcher.PageContents, error)
 	GenerateThemes(pageContents []researcher.PageContents, businessSummary *researcher.BusinessSummary) ([]CampaignTheme, error)
-	TemplatePlan(templatePrompt string) (*ExtractedTemplate, error)
+	TemplatePlan(templatePrompt string, templateToFill storage.Template) (*ExtractedTemplate, error)
 	InitFields(template *ExtractedTemplate, campaignDetailsStr string, candidateImages []string) ([]canva.TextField, []canva.ImageField, []canva.ColorField, error)
 }
 
@@ -39,7 +39,7 @@ func NewCampaignHelperClient(openaiClient openai.OpenaiClient, researcher resear
 	}
 }
 
-func (c *CampaignHelperClient) TemplatePlan(templatePrompt string) (*ExtractedTemplate, error) {
+func (c *CampaignHelperClient) TemplatePlan(templatePrompt string, templateToFill storage.Template) (*ExtractedTemplate, error) {
 	templateCompletion, err := c.openaiClient.ChatCompletion(context.TODO(), templatePrompt, openai.GPT4o)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,70 @@ func (c *CampaignHelperClient) TemplatePlan(templatePrompt string) (*ExtractedTe
 		return nil, err
 	}
 
-	return &extractedTemplate, nil
+	return c.TemplateWithCorrectedTextFields(&extractedTemplate, templateToFill)
+}
+
+func (c *CampaignHelperClient) TemplateWithCorrectedTextFields(extractedTemplate *ExtractedTemplate, templateToFill storage.Template) (*ExtractedTemplate, error) {
+	maxCharMap := map[string]int{}
+	for _, field := range templateToFill.Fields {
+		if field.Type == "text" {
+			maxCharMap[field.Name] = field.MaxCharacters
+		}
+	}
+
+	textFields, imgFields := []PopulatedField{}, []PopulatedField{}
+	textUpdateTasks := []*utils.Task[*PopulatedField]{}
+
+	for _, field := range extractedTemplate.Fields {
+		if field.Type == TextType {
+			if maxChars, ok := maxCharMap[field.Name]; ok && len(field.Value) > maxChars {
+				textUpdateTasks = append(textUpdateTasks, utils.DoAsync[*PopulatedField](func() (*PopulatedField, error) {
+					return c.rephraseTextFieldCharsWithRetry(maxChars, &field)
+				}))
+			} else {
+				textFields = append(textFields, field)
+			}
+		} else if field.Type == ImageType {
+			imgFields = append(imgFields, field)
+		}
+	}
+
+	for _, task := range textUpdateTasks {
+		textField, err := utils.GetAsync(task)
+		if err != nil {
+			return nil, err
+		}
+
+		textFields = append(textFields, *textField)
+	}
+
+	return &ExtractedTemplate{
+		Platform:    extractedTemplate.Platform,
+		Caption:     extractedTemplate.Caption,
+		Fields:      append(textFields, imgFields...),
+		ColorFields: extractedTemplate.ColorFields,
+	}, nil
+}
+
+func (c *CampaignHelperClient) rephraseTextFieldCharsWithRetry(maxChars int, field *PopulatedField) (*PopulatedField, error) {
+	t, err := utils.Retry[string](3, func() (string, error) {
+		rephrased, err := c.openaiClient.ChatCompletion(context.TODO(), fmt.Sprintf(openai.MaxCharsPrompt, maxChars, field.Value), openai.GPT4o)
+
+		if len(rephrased) > maxChars {
+			return "", fmt.Errorf("rephrased text too long")
+		}
+
+		return rephrased, err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &PopulatedField{
+		Name:  field.Name,
+		Type:  field.Type,
+		Value: t,
+	}, err
 }
 
 func (c *CampaignHelperClient) InitFields(template *ExtractedTemplate, campaignDetailsStr string, candidateImages []string) ([]canva.TextField, []canva.ImageField, []canva.ColorField, error) {
@@ -159,17 +222,19 @@ func (c *CampaignHelperClient) bestImage(imageDescription string, candidateImage
 	}
 
 	prompt := fmt.Sprintf(openai.PickBestImagePrompt, campaignDetailsStr, imageDescription)
-	bestImage, err := c.openaiClient.ImageCompletion(context.TODO(), prompt, candidateImages, openai.GPT4o)
-	if err != nil {
-		return "", err
-	}
 
-	i, err := utils.FirstNumberInString(bestImage)
-	if err != nil {
-		return "", err
-	}
+	return utils.Retry(3, func() (string, error) {
+		bestImage, err := c.openaiClient.ImageCompletion(context.TODO(), prompt, candidateImages, openai.GPT4o)
+		if err != nil {
+			return "", err
+		}
 
-	return candidateImages[i], nil
+		i, err := utils.FirstNumberInString(bestImage)
+		if err != nil {
+			return "", err
+		}
+		return candidateImages[i], nil
+	})
 }
 
 func (c *CampaignHelperClient) GetCandidatePageContentsForUser(userID string, n int) ([]researcher.PageContents, error) {
@@ -272,3 +337,5 @@ func (c *CampaignHelperClient) themes(themePrompt string) ([]themeWithSuggestedK
 
 	return themes, nil
 }
+
+//       2. Add max character prompt

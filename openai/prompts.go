@@ -149,4 +149,5 @@ Content Formula: start with a Hook, Context, Details/Story, Lesson/Insight, CTA,
 •	Professional Tone: Maintain a professional and authoritative tone.
 •	Hashtags: Provide a list of relevant hashtags.
 `
+	MaxCharsPrompt = `Rephrase this to be a maximum of %v characters long: "%s". Reply with just the rephrased text.`
 )

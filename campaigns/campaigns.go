@@ -45,7 +45,7 @@ func (c *CampaignClient) GenerateThemesForUser(userID string) ([]campaign_helper
 	return c.campaignHelper.GenerateThemes(candidatePageContents, businessSummary)
 }
 
-func (c *CampaignClient) CampaignFrom(theme campaign_helper.CampaignTheme, businessSummary *researcher.BusinessSummary) ([]*canva.Design, *string, error) {
+func (c *CampaignClient) CampaignFrom(theme campaign_helper.CampaignTheme, businessSummary *researcher.BusinessSummary) ([]*canva.Design, string, error) {
 
 	scrapedPageBodyTask := utils.DoAsync[string](func() (string, error) {
 		return c.researcher.PageBodyTextFor(theme.Url)
@@ -57,7 +57,7 @@ func (c *CampaignClient) CampaignFrom(theme campaign_helper.CampaignTheme, busin
 
 	posts, err := c.researcher.SocialMediaPostsFor(theme.PrimaryKeyword)
 	if err != nil {
-		return nil, nil, err
+		return nil, "", err
 	}
 
 	researchReportTask := utils.DoAsync[string](func() (string, error) {
@@ -66,17 +66,17 @@ func (c *CampaignClient) CampaignFrom(theme campaign_helper.CampaignTheme, busin
 
 	templates, err := storage.GetRandom[storage.Template](c.storage, len(researcher.SocialMediaPlatforms))
 	if err != nil {
-		return nil, nil, err
+		return nil, "", err
 	}
 
 	scrapedPageBodyText, err := utils.GetAsync(scrapedPageBodyTask)
 	if err != nil {
-		return nil, nil, err
+		return nil, "", err
 	}
 
 	scrapedPageContents, err := utils.GetAsync(scrapedPageContentsTask)
 	if err != nil {
-		return nil, nil, err
+		return nil, "", err
 	}
 
 	campaignDetailsStr := fmt.Sprintf("Primary keyword: %v\nSecondary keyword: %v\nURL: %v\nTheme: %v\nTemplate Description: %v", theme.PrimaryKeyword, theme.SecondaryKeyword, theme.Url, theme.Theme, theme.ImageCanvaTemplateDescription)
@@ -103,24 +103,24 @@ func (c *CampaignClient) CampaignFrom(theme campaign_helper.CampaignTheme, busin
 
 	researchReport, err := utils.GetAsync(researchReportTask)
 	if err != nil {
-		return nil, nil, err
+		return nil, "", err
 	}
 
 	results := []*canva.Design{}
 	for _, task := range tasks {
 		result, err := utils.GetAsync(task)
 		if err != nil {
-			return nil, nil, err
+			return nil, "", err
 		}
 
 		results = append(results, &result.Design)
 	}
 
-	return results, &researchReport, nil
+	return results, researchReport, nil
 }
 
 func (c *CampaignClient) templateFrom(templatePrompt string, campaignDetailsStr string, scrapedPageContents researcher.PageContents, template storage.Template) (*canva.UpdateTemplateResult, error) {
-	templatePlan, err := c.campaignHelper.TemplatePlan(templatePrompt)
+	templatePlan, err := c.campaignHelper.TemplatePlan(templatePrompt, template)
 	if err != nil {
 		return nil, err
 	}

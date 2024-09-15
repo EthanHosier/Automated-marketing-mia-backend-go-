@@ -57,12 +57,12 @@ func (s *SupabaseStorage) get(table string, id string) (interface{}, error) {
 		return nil, NotFoundError
 	}
 
-	return result, nil
+	return result[0], nil
 }
 
 func (s *SupabaseStorage) getRandom(table string, limit int) ([]interface{}, error) {
 	var results []interface{}
-	err := s.client.DB.From(table).Select("*").Limit(limit).Execute(&results)
+	err := s.client.DB.From(table).Select("*").Execute(&results)
 
 	rand.Shuffle(len(results), func(i, j int) {
 		results[i], results[j] = results[j], results[i]

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -48,6 +49,7 @@ type Storage interface {
 
 func Get[T any](storage Storage, id string) (*T, error) {
 	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
+
 	table, ok := tableNames[typeOfT]
 	if !ok {
 		return nil, fmt.Errorf("table not found for type %v", typeOfT)
@@ -58,8 +60,18 @@ func Get[T any](storage Storage, id string) (*T, error) {
 		return nil, err
 	}
 
-	ret := data.(T)
-	return &ret, nil
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal data to JSON: %v", err)
+	}
+
+	ret := new(T)
+	err = json.Unmarshal(jsonData, ret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal data into type %v: %v", typeOfT, err)
+	}
+
+	return ret, nil
 }
 
 // TODO: add matchingFields {} to match on
@@ -77,7 +89,15 @@ func GetRandom[T any](storage Storage, limit int) ([]T, error) {
 
 	ret := make([]T, len(data))
 	for i, d := range data {
-		ret[i] = d.(T)
+		jsonData, err := json.Marshal(d)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal data to JSON: %v", err)
+		}
+
+		err = json.Unmarshal(jsonData, &ret[i])
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal data into type %v: %v", typeOfT, err)
+		}
 	}
 
 	return ret, nil
@@ -97,7 +117,15 @@ func GetAll[T any](storage Storage, matchingFields map[string]string) ([]T, erro
 
 	ret := make([]T, len(data))
 	for i, d := range data {
-		ret[i] = d.(T)
+		jsonData, err := json.Marshal(d)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal data to JSON: %v", err)
+		}
+
+		err = json.Unmarshal(jsonData, &ret[i])
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal data into type %v: %v", typeOfT, err)
+		}
 	}
 
 	return ret, nil

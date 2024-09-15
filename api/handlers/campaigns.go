@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/ethanhosier/mia-backend-go/campaigns"
 	"github.com/ethanhosier/mia-backend-go/researcher"
@@ -27,17 +28,29 @@ func GenerateCampaigns(store storage.Storage, campaignClient *campaigns.Campaign
 		}
 
 		businessSummary, err := storage.Get[researcher.BusinessSummary](store, userID)
-		templates, researchReport, err := campaignClient.CampaignFrom(themes[0], businessSummary)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-		slog.Info("Generated campaign for user %s", userID, "with %d templates", len(templates))
-		fmt.Printf("%+v", templates)
+		templates, researchReport, err := campaignClient.CampaignFrom(themes[0], businessSummary)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		slog.Info("Generated campaign for user " + userID + " with " + strconv.Itoa(len(templates)) + " templates")
+
+		for _, template := range templates {
+			fmt.Printf("Template: %+v\n", *template)
+		}
 
 		type response struct {
 			ResearchReport string `json:"research_report"`
 		}
 
 		resp := response{
-			ResearchReport: *researchReport,
+			ResearchReport: researchReport,
 		}
 
 		w.Header().Set("Content-Type", "application/json")

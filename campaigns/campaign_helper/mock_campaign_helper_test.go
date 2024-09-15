@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethanhosier/mia-backend-go/canva"
 	"github.com/ethanhosier/mia-backend-go/researcher"
+	"github.com/ethanhosier/mia-backend-go/storage"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,7 +36,7 @@ func TestMockTemplatePlan(t *testing.T) {
 	expectedResult := &ExtractedTemplate{} // Adjust according to the actual structure
 	mock.TemplatePlanWillReturn("prompt1", expectedResult)
 
-	result, err := mock.TemplatePlan("prompt1")
+	result, err := mock.TemplatePlan("prompt1", &storage.Template{})
 	assert.NoError(t, err)
 	assert.Equal(t, expectedResult, result)
 }
@@ -86,7 +87,7 @@ func TestMockTemplatePlanError(t *testing.T) {
 	expectedErr := errors.New("error planning template")
 	mock.TemplatePlanErrs["prompt1"] = expectedErr
 
-	result, err := mock.TemplatePlan("prompt1")
+	result, err := mock.TemplatePlan("prompt1", &storage.Template{})
 	assert.Nil(t, result)
 	assert.Equal(t, expectedErr, err)
 }

@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"errors"
+	"fmt"
 	"strconv"
 	"unicode"
 )
@@ -17,7 +17,7 @@ func FirstNumberInString(s string) (int, error) {
 	}
 
 	if num == "" {
-		return 0, errors.New("no number found in the string")
+		return 0, fmt.Errorf("no number found in the string %s", s)
 	}
 
 	number, err := strconv.Atoi(num)

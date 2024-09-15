@@ -1,6 +1,6 @@
 {
-  "access_token": "validAccessToken",
+  "access_token": "newAccessToken",
   "refresh_token": "validRefreshToken",
-  "expires_in": 1726416156,
+  "expires_in": 1726430903,
   "token_type": "Bearer"
 }

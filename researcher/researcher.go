@@ -181,7 +181,7 @@ func (r *ResearcherClient) SocialMediaPostsFor(keyword string) ([]SocialMediaPos
 		case posts := <-resultsChan:
 			socialMediaPosts = append(socialMediaPosts, posts...)
 		case err := <-errChan:
-			fmt.Println("Error fetching posts:", err)
+			return nil, fmt.Errorf("error fetching posts: %v", err)
 		case <-done:
 			return socialMediaPosts, nil
 		}

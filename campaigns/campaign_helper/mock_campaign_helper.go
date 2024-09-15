@@ -3,6 +3,7 @@ package campaign_helper
 import (
 	"github.com/ethanhosier/mia-backend-go/canva"
 	"github.com/ethanhosier/mia-backend-go/researcher"
+	"github.com/ethanhosier/mia-backend-go/storage"
 )
 
 type InitiFieldsResultsResult struct {
@@ -51,7 +52,7 @@ func (m *MockCampaignHelper) GenerateThemes(pageContents []researcher.PageConten
 	return m.GenerateThemesResults[businessSummary.BusinessName], nil
 }
 
-func (m *MockCampaignHelper) TemplatePlan(templatePrompt string) (*ExtractedTemplate, error) {
+func (m *MockCampaignHelper) TemplatePlan(templatePrompt string, templateToFill *storage.Template) (*ExtractedTemplate, error) {
 	if err, ok := m.TemplatePlanErrs[templatePrompt]; ok {
 		return nil, err
 	}
