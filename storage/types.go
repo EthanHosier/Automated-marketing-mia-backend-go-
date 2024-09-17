@@ -30,4 +30,10 @@ type ImageFeature struct {
 	Feature          string    `json:"feature"`
 	FeatureEmbedding []float32 `json:"feature_embedding"`
 	UserId           string    `json:"user_id"`
+	ImageUrl         string    `json:"image_url"`
+}
+
+type Similarity[T any] struct {
+	Item       T
+	Similarity float64
 }

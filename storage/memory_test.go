@@ -225,8 +225,12 @@ func TestGetClosest(t *testing.T) {
 		storage  = NewInMemoryStorage()
 		feature1 = ImageFeature{ID: "1", Feature: "Feature 1", FeatureEmbedding: []float32{1, 2, 3}, UserId: "1"}
 		feature2 = ImageFeature{ID: "2", Feature: "Feature 2", FeatureEmbedding: []float32{4, 5, 6}, UserId: "2"}
-		features = []ImageFeature{feature1, feature2}
 		ctxt     = context.WithValue(context.Background(), utils.UserIdKey, "1")
+
+		expectedResult = []Similarity[ImageFeature]{
+			{Item: feature1, Similarity: 69.0},
+			{Item: feature2, Similarity: 69.0},
+		}
 	)
 
 	// when
@@ -236,5 +240,5 @@ func TestGetClosest(t *testing.T) {
 	// then
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
-	assert.ElementsMatch(t, features, result)
+	assert.ElementsMatch(t, expectedResult, result)
 }

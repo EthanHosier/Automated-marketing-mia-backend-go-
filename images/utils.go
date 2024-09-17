@@ -2,7 +2,9 @@ package images
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 
 	"github.com/ethanhosier/mia-backend-go/openai"
 )
@@ -22,4 +24,9 @@ func (ic *HttpImageClient) getCaptionsCompletionArr(image string) ([]string, err
 	}
 
 	return captions, nil
+}
+
+func EncodeToBase64WithMIME(data []byte, mimeType string) string {
+	encoded := base64.StdEncoding.EncodeToString(data)
+	return fmt.Sprintf("data:%s;base64,%s", mimeType, encoded)
 }

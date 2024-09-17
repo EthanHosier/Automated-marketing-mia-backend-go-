@@ -37,7 +37,7 @@ type Storage interface {
 	get(table TableName, id string) (interface{}, error)
 	getAll(table TableName, matchingFields map[string]string) ([]interface{}, error)
 	getRandom(table TableName, limit int) ([]interface{}, error)
-	getClosest(ctxt context.Context, table TableName, vector []float32, limit int) ([]interface{}, error)
+	getClosest(ctxt context.Context, table TableName, vector []float32, limit int) ([]Similarity[interface{}], error)
 	// todo: getAll with map[string]interface{} which returns all rows matching these fields
 
 	update(table TableName, id string, updateFields map[string]interface{}) (interface{}, error)
@@ -99,7 +99,7 @@ func GetRandom[T any](storage Storage, limit int) ([]T, error) {
 	return ret, nil
 }
 
-func GetClosest[T any](ctxt context.Context, storage Storage, vector []float32, limit int) ([]T, error) {
+func GetClosest[T any](ctxt context.Context, storage Storage, vector []float32, limit int) ([]Similarity[T], error) {
 	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
 	table, ok := tableNames[typeOfT]
 	if !ok {
@@ -111,17 +111,20 @@ func GetClosest[T any](ctxt context.Context, storage Storage, vector []float32, 
 		return nil, err
 	}
 
-	ret := make([]T, len(data))
+	ret := make([]Similarity[T], len(data))
 	for i, d := range data {
-		jsonData, err := json.Marshal(d)
+		jsonData, err := json.Marshal(d.Item)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal data to JSON: %v", err)
 		}
 
-		err = json.Unmarshal(jsonData, &ret[i])
+		var item T
+		err = json.Unmarshal(jsonData, &item)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal data into type %v: %v", typeOfT, err)
 		}
+
+		ret[i] = Similarity[T]{Item: item, Similarity: d.Similarity}
 	}
 
 	return ret, nil

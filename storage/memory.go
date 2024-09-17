@@ -108,8 +108,18 @@ func (s *InMemoryStorage) getRandom(table TableName, limit int) ([]interface{}, 
 	return result, nil
 }
 
-func (s *InMemoryStorage) getClosest(ctxt context.Context, table TableName, vector []float32, limit int) ([]interface{}, error) {
-	return s.getRandom(table, limit)
+func (s *InMemoryStorage) getClosest(ctxt context.Context, table TableName, vector []float32, limit int) ([]Similarity[interface{}], error) {
+	data, err := s.getRandom(table, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	var results []Similarity[interface{}]
+	for _, item := range data {
+		results = append(results, Similarity[interface{}]{Item: item, Similarity: 69.0})
+	}
+
+	return results, nil
 }
 
 func (s *InMemoryStorage) getAll(table TableName, matchingFields map[string]string) ([]interface{}, error) {

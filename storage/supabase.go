@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"math/rand"
+	"reflect"
 
 	"github.com/ethanhosier/mia-backend-go/http"
 	"github.com/ethanhosier/mia-backend-go/utils"
@@ -100,7 +102,7 @@ func (s *SupabaseStorage) update(table TableName, id string, updateFields map[st
 	return results, err
 }
 
-func (s *SupabaseStorage) getClosest(ctxt context.Context, table TableName, vector []float32, limit int) ([]interface{}, error) {
+func (s *SupabaseStorage) getClosest(ctxt context.Context, table TableName, vector []float32, limit int) ([]Similarity[interface{}], error) {
 	userId := ctxt.Value(utils.UserIdKey).(string)
 	payload := map[string]interface{}{
 		"query_embedding": vector,
@@ -109,7 +111,22 @@ func (s *SupabaseStorage) getClosest(ctxt context.Context, table TableName, vect
 		"user_id":         userId,
 	}
 
-	return s.rpc(getNearestRpcMethods[table], payload)
+	data, err := s.rpc(getNearestRpcMethods[table], payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var results []Similarity[interface{}]
+	for _, item := range data {
+		similarity, newItem, err := extractAndRemoveSimilarity(item)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, Similarity[interface{}]{Item: newItem, Similarity: similarity})
+	}
+
+	return results, nil
 }
 
 func (s *SupabaseStorage) rpc(rpcMethod string, payload map[string]interface{}) ([]interface{}, error) {
@@ -149,4 +166,50 @@ func (s *SupabaseStorage) rpc(rpcMethod string, payload map[string]interface{}) 
 	}
 
 	return result, nil
+}
+
+func extractAndRemoveSimilarity(input interface{}) (float64, interface{}, error) {
+	val := reflect.ValueOf(input)
+	typ := val.Type()
+
+	// Check if input is a struct
+	if val.Kind() != reflect.Struct {
+		return 0, input, errors.New("input must be a struct")
+	}
+
+	// Find the "Similarity" field
+	similarityField := val.FieldByName("Similarity")
+	if !similarityField.IsValid() {
+		return 0, input, errors.New("field 'Similarity' not found")
+	}
+
+	if similarityField.Kind() != reflect.Float64 {
+		return 0, input, errors.New("field 'Similarity' is not of type float64")
+	}
+
+	// Extract the similarity value
+	similarity := similarityField.Float()
+
+	// Create a new struct type without the "Similarity" field
+	var fields []reflect.StructField
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if field.Name != "Similarity" {
+			fields = append(fields, field)
+		}
+	}
+
+	// Create a new struct value
+	newStructType := reflect.StructOf(fields)
+	newStructValue := reflect.New(newStructType).Elem()
+
+	// Copy fields to the new struct, excluding "Similarity"
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+		if typ.Field(i).Name != "Similarity" {
+			newStructValue.FieldByName(typ.Field(i).Name).Set(field)
+		}
+	}
+
+	return similarity, newStructValue.Interface(), nil
 }

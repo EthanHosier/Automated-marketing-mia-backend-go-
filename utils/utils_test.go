@@ -3,6 +3,8 @@ package utils
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // Test when the string contains a number in the middle
@@ -102,5 +104,70 @@ func TestFirstNChars_WithNonASCII(t *testing.T) {
 	expected := "こんにちは"
 	if result != expected {
 		t.Fatalf("expected '%s', got '%s'", expected, result)
+	}
+}
+
+func TestFirstNumberInString(t *testing.T) {
+	tests := []struct {
+		input          string
+		expectedNumber int
+		expectedError  bool
+	}{
+		{"abc123def", 123, false},               // Positive number in the string
+		{"-456xyz", -456, false},                // Negative number at the start
+		{"abc-789", -789, false},                // Negative number in the middle
+		{"no numbers", 0, true},                 // No numbers in the string
+		{"--123", -123, false},                  // Invalid number (extra '-')
+		{"123abc-456", 123, false},              // First positive number
+		{"", 0, true},                           // Empty string
+		{"something-123again-456", -123, false}, // First negative number
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			result, err := FirstNumberInString(test.input)
+
+			if test.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, test.expectedNumber, result)
+			}
+		})
+	}
+}
+
+func TestFlatten(t *testing.T) {
+	tests := []struct {
+		input          [][]int
+		expectedOutput []int
+	}{
+		{ // Test with multiple slices containing integers
+			input:          [][]int{{1, 2, 3}, {4, 5}, {6}},
+			expectedOutput: []int{1, 2, 3, 4, 5, 6},
+		},
+		{ // Test with an empty slice of slices
+			input:          [][]int{},
+			expectedOutput: []int{},
+		},
+		{ // Test with a single empty slice
+			input:          [][]int{{}},
+			expectedOutput: []int{},
+		},
+		{ // Test with slices containing mixed elements
+			input:          [][]int{{7}, {8, 9}, {10, 11, 12}},
+			expectedOutput: []int{7, 8, 9, 10, 11, 12},
+		},
+		{ // Test with slices of different lengths
+			input:          [][]int{{1, 2}, {3}, {4, 5, 6}},
+			expectedOutput: []int{1, 2, 3, 4, 5, 6},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run("FlattenTest", func(t *testing.T) {
+			result := Flatten(test.input)
+			assert.Equal(t, test.expectedOutput, result)
+		})
 	}
 }

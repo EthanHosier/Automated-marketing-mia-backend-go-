@@ -1,6 +1,7 @@
 package images
 
 import (
+	"context"
 	"testing"
 
 	"github.com/ethanhosier/mia-backend-go/http"
@@ -96,7 +97,7 @@ func TestBestImageFor(t *testing.T) {
 	openaiClient.WillReturnEmbeddings(desiredFeatures, [][]float32{{1, 2}, {3, 4}})
 
 	// when
-	resp, err := imagesClient.BestImageFor(desiredFeatures, "prompt")
+	resp, err := imagesClient.BestImageFor(context.Background(), desiredFeatures, "relevance description", "prompt")
 
 	// then
 	assert.NoError(t, err)

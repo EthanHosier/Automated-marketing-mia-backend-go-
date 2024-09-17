@@ -2,6 +2,7 @@ package images
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -98,11 +99,56 @@ func (ic *HttpImageClient) StockImageFrom(prompt string) (string, error) {
 	return "", nil
 }
 
-func (ic *HttpImageClient) BestImageFor(desiredFeatures []string, prompt string) (string, error) {
-	_, err := ic.openaiClient.Embeddings(desiredFeatures)
+func (ic *HttpImageClient) BestImageFor(ctxt context.Context, desiredFeatures []string, relevanceDescription string, prompt string) (string, error) {
+	embeddings, err := ic.openaiClient.Embeddings(desiredFeatures)
 	if err != nil {
 		return "", err
 	}
 
-	return "", nil
+	tasks := utils.DoAsyncList(embeddings, func(embedding []float32) ([]storage.Similarity[storage.ImageFeature], error) {
+		return storage.GetClosest[storage.ImageFeature](ctxt, ic.store, embedding, 3)
+	})
+
+	results, err := utils.GetAsyncList(tasks)
+	if err != nil {
+		return "", err
+	}
+
+	allImages := []string{}
+	for _, f := range utils.Flatten(results) {
+		allImages = append(allImages, f.Item.ImageUrl)
+	}
+
+	if len(allImages) == 0 {
+		return ic.base64AiImageFrom(prompt)
+	}
+
+	imgPrompt := fmt.Sprintf("%s\n%s", relevanceDescription, bestImagePrompt)
+
+	index, err := utils.Retry(3, func() (int, error) {
+		i, err := ic.openaiClient.ImageCompletion(ctxt, imgPrompt, allImages, openai.GPT4o)
+		if err != nil {
+			return 0, err
+		}
+		return utils.FirstNumberInString(i)
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	if index == -1 {
+		return ic.base64AiImageFrom(prompt)
+	}
+
+	return allImages[index], nil
+}
+
+func (ic *HttpImageClient) base64AiImageFrom(prompt string) (string, error) {
+	img, err := ic.AiImageFrom(prompt, openai.GPT4o)
+	if err != nil {
+		return "", err
+	}
+
+	return EncodeToBase64WithMIME(img, "image/png"), nil
 }
