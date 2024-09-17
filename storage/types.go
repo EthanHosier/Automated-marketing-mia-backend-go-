@@ -24,3 +24,10 @@ type Template struct {
 	Fields      []TemplateFields `json:"fields"`
 	ColorFields []ColorField     `json:"colors"`
 }
+
+type ImageFeature struct {
+	ID               string    `json:"id"`
+	Feature          string    `json:"feature"`
+	FeatureEmbedding []float32 `json:"feature_embedding"`
+	UserId           string    `json:"user_id"`
+}

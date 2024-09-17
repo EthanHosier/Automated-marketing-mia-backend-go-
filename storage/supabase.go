@@ -3,7 +3,6 @@ package storage
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +11,10 @@ import (
 	"github.com/ethanhosier/mia-backend-go/http"
 	postgrest_go "github.com/nedpals/postgrest-go/pkg"
 	supa "github.com/nedpals/supabase-go"
+)
+
+var (
+	getNearestRpcMethods = map[TableName]string{}
 )
 
 type SupabaseStorage struct {
@@ -31,23 +34,23 @@ func NewSupabaseStorage(client *supa.Client, url string, serviceKey string, rpcH
 	}
 }
 
-func (s *SupabaseStorage) store(table string, data interface{}) (interface{}, error) {
+func (s *SupabaseStorage) store(table TableName, data interface{}) (interface{}, error) {
 	var results []interface{}
-	err := s.client.DB.From(table).Insert(data).Execute(&results)
+	err := s.client.DB.From(string(table)).Insert(data).Execute(&results)
 
 	return results, err
 }
 
-func (s *SupabaseStorage) storeAll(table string, data []interface{}) ([]interface{}, error) {
+func (s *SupabaseStorage) storeAll(table TableName, data []interface{}) ([]interface{}, error) {
 	var results []interface{}
-	err := s.client.DB.From(table).Insert(data).Execute(&results)
+	err := s.client.DB.From(string(table)).Insert(data).Execute(&results)
 
 	return results, err
 }
 
-func (s *SupabaseStorage) get(table string, id string) (interface{}, error) {
+func (s *SupabaseStorage) get(table TableName, id string) (interface{}, error) {
 	var result []interface{}
-	err := s.client.DB.From(table).Select("*").Limit(1).Eq("id", id).Execute(&result)
+	err := s.client.DB.From(string(table)).Select("*").Limit(1).Eq("id", id).Execute(&result)
 
 	if err != nil {
 		return nil, err
@@ -60,9 +63,9 @@ func (s *SupabaseStorage) get(table string, id string) (interface{}, error) {
 	return result[0], nil
 }
 
-func (s *SupabaseStorage) getRandom(table string, limit int) ([]interface{}, error) {
+func (s *SupabaseStorage) getRandom(table TableName, limit int) ([]interface{}, error) {
 	var results []interface{}
-	err := s.client.DB.From(table).Select("*").Execute(&results)
+	err := s.client.DB.From(string(table)).Select("*").Execute(&results)
 
 	rand.Shuffle(len(results), func(i, j int) {
 		results[i], results[j] = results[j], results[i]
@@ -72,10 +75,10 @@ func (s *SupabaseStorage) getRandom(table string, limit int) ([]interface{}, err
 	return results[:l], err
 }
 
-func (s *SupabaseStorage) getAll(table string, matchingFields map[string]string) ([]interface{}, error) {
+func (s *SupabaseStorage) getAll(table TableName, matchingFields map[string]string) ([]interface{}, error) {
 	var results []interface{}
 
-	initial_query := s.client.DB.From(table).Select("*")
+	initial_query := s.client.DB.From(string(table)).Select("*")
 	var query *postgrest_go.FilterRequestBuilder
 	for k, v := range matchingFields {
 		query = initial_query.Eq(k, v)
@@ -86,20 +89,19 @@ func (s *SupabaseStorage) getAll(table string, matchingFields map[string]string)
 	return results, err
 }
 
-func (s *SupabaseStorage) update(table string, id string, updateFields map[string]interface{}) (interface{}, error) {
+func (s *SupabaseStorage) update(table TableName, id string, updateFields map[string]interface{}) (interface{}, error) {
 	var results []interface{}
-	err := s.client.DB.From(table).Update(updateFields).Eq("id", id).Execute(&results)
+	err := s.client.DB.From(string(table)).Update(updateFields).Eq("id", id).Execute(&results)
 
 	return results, err
 }
 
-func (s *SupabaseStorage) rpc(rpcMethod RpcMethod, payload map[string]interface{}) (interface{}, error) {
-	method, ok := rpcMethods[rpcMethod]
-	if !ok {
-		return nil, errors.New("rpc method not found")
-	}
+func (s *SupabaseStorage) getClosest(table TableName, vector []uint32, limit int) ([]interface{}, error) {
+	return nil, fmt.Errorf("getClosest not implemented for SupabaseStorage")
+}
 
-	url := s.url + method
+func (s *SupabaseStorage) rpc(rpcMethod string, payload map[string]interface{}) ([]interface{}, error) {
+	url := s.url + rpcMethod
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {

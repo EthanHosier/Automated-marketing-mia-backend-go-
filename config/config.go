@@ -7,6 +7,7 @@ import (
 	"github.com/ethanhosier/mia-backend-go/campaigns/campaign_helper"
 	"github.com/ethanhosier/mia-backend-go/canva"
 	"github.com/ethanhosier/mia-backend-go/http"
+	"github.com/ethanhosier/mia-backend-go/images"
 	"github.com/ethanhosier/mia-backend-go/openai"
 	"github.com/ethanhosier/mia-backend-go/researcher"
 	"github.com/ethanhosier/mia-backend-go/services"
@@ -18,6 +19,7 @@ type ServerConfig struct {
 	Researcher     researcher.Researcher
 	CampaignClient *campaigns.CampaignClient
 	Store          storage.Storage
+	ImagesClient   images.ImagesClient
 }
 
 func NewProdServerConfig() ServerConfig {
@@ -31,12 +33,14 @@ func NewProdServerConfig() ServerConfig {
 		r               = researcher.New(servicesClient, openaiClient)
 		campaign_helper = campaign_helper.NewCampaignHelperClient(openaiClient, r, canvaClient, storageClient)
 		c               = campaigns.NewCampaignClient(openaiClient, r, canvaClient, storageClient, campaign_helper)
+		imagesClient    = images.NewHttpImageClient(httpClient, storageClient, openaiClient)
 	)
 
 	return ServerConfig{
 		Researcher:     r,
 		CampaignClient: c,
 		Store:          storageClient,
+		ImagesClient:   imagesClient,
 	}
 }
 

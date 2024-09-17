@@ -1,15 +1,18 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"log"
+	"os"
 
 	"github.com/ethanhosier/mia-backend-go/api"
 	"github.com/ethanhosier/mia-backend-go/config"
+	"github.com/ethanhosier/mia-backend-go/images"
 	"github.com/joho/godotenv"
 )
 
-func main() {
+func main2() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
@@ -22,17 +25,31 @@ func main() {
 	log.Fatal(server.Start())
 }
 
-/*
+func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
 
-Order of testing
-1. The helper utils    [X]
-2. The storage         [X]
-3. Openai              [X] (other than openai client: TODO: abstract into interface)
-2. The services 			 [X] ^ for services also
-3. Canva 						   [X]
-4. Researcher 				 [X]
-5. Campaigns           []
+	imgClient := config.NewProdServerConfig().ImagesClient
+	result, err := imgClient.AiImageFrom("an annoying little sister in a green t shirt and mario stockings", images.StableImageCore)
 
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
 
-NEED TO DO MOCK HTTP
-*/
+	err = os.WriteFile("image_result.png", result, 0644)
+	if err != nil {
+		log.Fatalf("Failed to write result to file: %v", err)
+	}
+
+	base64Result := base64.StdEncoding.EncodeToString(result)
+	dataURL := "data:image/png;base64," + base64Result
+
+	captions, err := imgClient.CaptionsFor(dataURL)
+
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	log.Printf("Captions: %v", captions)
+}

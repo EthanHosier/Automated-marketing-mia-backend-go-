@@ -9,42 +9,37 @@ import (
 	"github.com/ethanhosier/mia-backend-go/researcher"
 )
 
-type TableName int
-type RpcMethod int
+type TableName string
 
-// TODO: abstract this RPC logic away into the actual get functions themselves
 const (
-	NEAREST_TEMPLATE RpcMethod = iota
-	NEAREST_URL
-	RANDOM_URLS
+	canva_templates   TableName = "canva_templates"
+	businessSummaries TableName = "businessSummaries"
+	sitemaps          TableName = "sitemaps"
+	image_features    TableName = "image_features"
 )
 
 var (
 	NotFoundError = errors.New("not found")
 )
 
-var tableNames = map[reflect.Type]string{
-	reflect.TypeOf(Template{}):                   "canva_templates",
-	reflect.TypeOf(researcher.BusinessSummary{}): "businessSummaries",
-	reflect.TypeOf(researcher.SitemapUrl{}):      "sitemaps",
-}
-
-var rpcMethods = map[RpcMethod]string{
-	RANDOM_URLS:      "/rest/v1/rpc/random_urls",
-	NEAREST_URL:      "/rest/v1/rpc/nearest_url",
-	NEAREST_TEMPLATE: "/rest/v1/rpc/match_canva_templates",
+var tableNames = map[reflect.Type]TableName{
+	reflect.TypeOf(Template{}):                   canva_templates,
+	reflect.TypeOf(researcher.BusinessSummary{}): businessSummaries,
+	reflect.TypeOf(researcher.SitemapUrl{}):      sitemaps,
+	reflect.TypeOf(ImageFeature{}):               image_features,
 }
 
 type Storage interface {
-	store(table string, data interface{}) (interface{}, error)
-	storeAll(table string, data []interface{}) ([]interface{}, error)
+	store(table TableName, data interface{}) (interface{}, error)
+	storeAll(table TableName, data []interface{}) ([]interface{}, error)
 
-	get(table string, id string) (interface{}, error)
-	getAll(table string, matchingFields map[string]string) ([]interface{}, error)
-	getRandom(table string, limit int) ([]interface{}, error)
+	get(table TableName, id string) (interface{}, error)
+	getAll(table TableName, matchingFields map[string]string) ([]interface{}, error)
+	getRandom(table TableName, limit int) ([]interface{}, error)
+	getClosest(table TableName, vector []uint32, limit int) ([]interface{}, error)
 	// todo: getAll with map[string]interface{} which returns all rows matching these fields
 
-	update(table string, id string, updateFields map[string]interface{}) (interface{}, error)
+	update(table TableName, id string, updateFields map[string]interface{}) (interface{}, error)
 }
 
 func Get[T any](storage Storage, id string) (*T, error) {

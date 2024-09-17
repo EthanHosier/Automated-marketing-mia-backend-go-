@@ -9,17 +9,17 @@ import (
 )
 
 type InMemoryStorage struct {
-	data map[string]map[string]interface{} // Table -> ID -> Data
-	mu   sync.RWMutex                      // For concurrent access
+	data map[TableName]map[string]interface{} // Table -> ID -> Data
+	mu   sync.RWMutex                         // For concurrent access
 }
 
 func NewInMemoryStorage() *InMemoryStorage {
 	return &InMemoryStorage{
-		data: make(map[string]map[string]interface{}),
+		data: make(map[TableName]map[string]interface{}),
 	}
 }
 
-func (s *InMemoryStorage) store(table string, data interface{}) (interface{}, error) {
+func (s *InMemoryStorage) store(table TableName, data interface{}) (interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -48,7 +48,7 @@ func (s *InMemoryStorage) store(table string, data interface{}) (interface{}, er
 	return id, nil
 }
 
-func (s *InMemoryStorage) storeAll(table string, data []interface{}) ([]interface{}, error) {
+func (s *InMemoryStorage) storeAll(table TableName, data []interface{}) ([]interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -80,7 +80,7 @@ func (s *InMemoryStorage) storeAll(table string, data []interface{}) ([]interfac
 	return ids, nil
 }
 
-func (s *InMemoryStorage) get(table string, id string) (interface{}, error) {
+func (s *InMemoryStorage) get(table TableName, id string) (interface{}, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -92,7 +92,7 @@ func (s *InMemoryStorage) get(table string, id string) (interface{}, error) {
 	return nil, errors.New("item not found")
 }
 
-func (s *InMemoryStorage) getRandom(table string, limit int) ([]interface{}, error) {
+func (s *InMemoryStorage) getRandom(table TableName, limit int) ([]interface{}, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -107,7 +107,11 @@ func (s *InMemoryStorage) getRandom(table string, limit int) ([]interface{}, err
 	return result, nil
 }
 
-func (s *InMemoryStorage) getAll(table string, matchingFields map[string]string) ([]interface{}, error) {
+func (s *InMemoryStorage) getClosest(table TableName, vector []uint32, limit int) ([]interface{}, error) {
+	return s.getRandom(table, limit)
+}
+
+func (s *InMemoryStorage) getAll(table TableName, matchingFields map[string]string) ([]interface{}, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -133,7 +137,7 @@ func (s *InMemoryStorage) getAll(table string, matchingFields map[string]string)
 	return results, nil
 }
 
-func (s *InMemoryStorage) update(table string, id string, updateFields map[string]interface{}) (interface{}, error) {
+func (s *InMemoryStorage) update(table TableName, id string, updateFields map[string]interface{}) (interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
