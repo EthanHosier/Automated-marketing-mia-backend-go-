@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,10 +13,10 @@ import (
 type TableName string
 
 const (
-	canva_templates   TableName = "canva_templates"
-	businessSummaries TableName = "businessSummaries"
-	sitemaps          TableName = "sitemaps"
-	image_features    TableName = "image_features"
+	canva_templates_table   TableName = "canva_templates"
+	businessSummaries_table TableName = "businessSummaries"
+	sitemaps_table          TableName = "sitemaps"
+	image_features_table    TableName = "image_features"
 )
 
 var (
@@ -23,10 +24,10 @@ var (
 )
 
 var tableNames = map[reflect.Type]TableName{
-	reflect.TypeOf(Template{}):                   canva_templates,
-	reflect.TypeOf(researcher.BusinessSummary{}): businessSummaries,
-	reflect.TypeOf(researcher.SitemapUrl{}):      sitemaps,
-	reflect.TypeOf(ImageFeature{}):               image_features,
+	reflect.TypeOf(Template{}):                   canva_templates_table,
+	reflect.TypeOf(researcher.BusinessSummary{}): businessSummaries_table,
+	reflect.TypeOf(researcher.SitemapUrl{}):      sitemaps_table,
+	reflect.TypeOf(ImageFeature{}):               image_features_table,
 }
 
 type Storage interface {
@@ -36,7 +37,7 @@ type Storage interface {
 	get(table TableName, id string) (interface{}, error)
 	getAll(table TableName, matchingFields map[string]string) ([]interface{}, error)
 	getRandom(table TableName, limit int) ([]interface{}, error)
-	getClosest(table TableName, vector []uint32, limit int) ([]interface{}, error)
+	getClosest(ctxt context.Context, table TableName, vector []float32, limit int) ([]interface{}, error)
 	// todo: getAll with map[string]interface{} which returns all rows matching these fields
 
 	update(table TableName, id string, updateFields map[string]interface{}) (interface{}, error)
@@ -78,6 +79,34 @@ func GetRandom[T any](storage Storage, limit int) ([]T, error) {
 	}
 
 	data, err := storage.getRandom(table, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]T, len(data))
+	for i, d := range data {
+		jsonData, err := json.Marshal(d)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal data to JSON: %v", err)
+		}
+
+		err = json.Unmarshal(jsonData, &ret[i])
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal data into type %v: %v", typeOfT, err)
+		}
+	}
+
+	return ret, nil
+}
+
+func GetClosest[T any](ctxt context.Context, storage Storage, vector []float32, limit int) ([]T, error) {
+	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
+	table, ok := tableNames[typeOfT]
+	if !ok {
+		return nil, fmt.Errorf("table not found for type %v", typeOfT)
+	}
+
+	data, err := storage.getClosest(ctxt, table, vector, limit)
 	if err != nil {
 		return nil, err
 	}

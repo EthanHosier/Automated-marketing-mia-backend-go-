@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,12 +10,15 @@ import (
 	"math/rand"
 
 	"github.com/ethanhosier/mia-backend-go/http"
+	"github.com/ethanhosier/mia-backend-go/utils"
 	postgrest_go "github.com/nedpals/postgrest-go/pkg"
 	supa "github.com/nedpals/supabase-go"
 )
 
 var (
-	getNearestRpcMethods = map[TableName]string{}
+	getNearestRpcMethods = map[TableName]string{
+		image_features_table: "/rest/v1/rpc/match_image_features",
+	}
 )
 
 type SupabaseStorage struct {
@@ -96,8 +100,16 @@ func (s *SupabaseStorage) update(table TableName, id string, updateFields map[st
 	return results, err
 }
 
-func (s *SupabaseStorage) getClosest(table TableName, vector []uint32, limit int) ([]interface{}, error) {
-	return nil, fmt.Errorf("getClosest not implemented for SupabaseStorage")
+func (s *SupabaseStorage) getClosest(ctxt context.Context, table TableName, vector []float32, limit int) ([]interface{}, error) {
+	userId := ctxt.Value(utils.UserIdKey).(string)
+	payload := map[string]interface{}{
+		"query_embedding": vector,
+		"match_threshold": 0.5,
+		"match_count":     limit,
+		"user_id":         userId,
+	}
+
+	return s.rpc(getNearestRpcMethods[table], payload)
 }
 
 func (s *SupabaseStorage) rpc(rpcMethod string, payload map[string]interface{}) ([]interface{}, error) {

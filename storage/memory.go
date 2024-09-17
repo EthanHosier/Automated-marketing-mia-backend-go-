@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -107,7 +108,7 @@ func (s *InMemoryStorage) getRandom(table TableName, limit int) ([]interface{}, 
 	return result, nil
 }
 
-func (s *InMemoryStorage) getClosest(table TableName, vector []uint32, limit int) ([]interface{}, error) {
+func (s *InMemoryStorage) getClosest(ctxt context.Context, table TableName, vector []float32, limit int) ([]interface{}, error) {
 	return s.getRandom(table, limit)
 }
 

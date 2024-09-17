@@ -1,8 +1,10 @@
 package storage
 
 import (
+	"context"
 	"testing"
 
+	"github.com/ethanhosier/mia-backend-go/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -215,4 +217,24 @@ func TestGetRandomUnregisteredType(t *testing.T) {
 	if results != nil {
 		t.Fatalf("expected nil results, got: %v", results)
 	}
+}
+
+func TestGetClosest(t *testing.T) {
+	// given
+	var (
+		storage  = NewInMemoryStorage()
+		feature1 = ImageFeature{ID: "1", Feature: "Feature 1", FeatureEmbedding: []float32{1, 2, 3}, UserId: "1"}
+		feature2 = ImageFeature{ID: "2", Feature: "Feature 2", FeatureEmbedding: []float32{4, 5, 6}, UserId: "2"}
+		features = []ImageFeature{feature1, feature2}
+		ctxt     = context.WithValue(context.Background(), utils.UserIdKey, "1")
+	)
+
+	// when
+	StoreAll(storage, []ImageFeature{feature1, feature2})
+	result, err := GetClosest[ImageFeature](ctxt, storage, []float32{1, 2, 3}, 2)
+
+	// then
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.ElementsMatch(t, features, result)
 }
