@@ -169,7 +169,7 @@ func Store[T any](storage Storage, data T) error {
 	return err
 }
 
-func StoreAll[T any](storage Storage, data []T) error {
+func StoreAll[T any](storage Storage, data ...T) error {
 	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
 	table, ok := tableNames[typeOfT]
 	if !ok {

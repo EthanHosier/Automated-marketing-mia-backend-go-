@@ -1,7 +1,12 @@
 package images
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"testing"
 
 	"github.com/ethanhosier/mia-backend-go/http"
@@ -91,15 +96,72 @@ func TestBestImageFor(t *testing.T) {
 		store        = storage.NewInMemoryStorage()
 		imagesClient = NewHttpImageClient(httpClient, store, openaiClient)
 
-		desiredFeatures = []string{"feature1", "feature2"}
+		desiredFeatures      = []string{"feature1", "feature2"}
+		relevanceDescription = "some description"
+		guaranteedImages     = []string{"gurl1", "gurl2"}
+
+		vector1 = []float32{1, 2}
+		vector2 = []float32{3, 4}
+
+		feature1 = storage.ImageFeature{ID: "1", Feature: "a feature", FeatureEmbedding: vector1, UserId: "1", ImageUrl: "url1"}
+		feature2 = storage.ImageFeature{ID: "2", Feature: "another feature", FeatureEmbedding: vector2, UserId: "2", ImageUrl: "url2"}
+
+		allImages = []string{"url1", "url2"}
+		imgPrompt = fmt.Sprintf(bestImagePrompt, relevanceDescription)
 	)
 
 	openaiClient.WillReturnEmbeddings(desiredFeatures, [][]float32{{1, 2}, {3, 4}})
+	openaiClient.WillReturnImageCompletion(imgPrompt, append(guaranteedImages, allImages...), openai.GPT4o, "2")
 
 	// when
-	resp, err := imagesClient.BestImageFor(context.Background(), desiredFeatures, "relevance description", "prompt")
+	storage.StoreAll(store, feature1, feature2)
+	resp, err := imagesClient.BestImageFor(context.Background(), desiredFeatures, guaranteedImages, relevanceDescription, "prompt")
 
 	// then
 	assert.NoError(t, err)
-	assert.Equal(t, "", resp)
+	assert.Equal(t, feature1.ImageUrl, resp)
+}
+
+func TestFilterImages(t *testing.T) {
+	// given
+	var (
+		httpClient   = &http.MockHttpClient{}
+		imagesClient = NewHttpImageClient(httpClient, nil, nil)
+
+		smallImg = createImage(300, 500)
+		largeImg = createImage(500, 500)
+
+		urls = []string{"url1", "url2"}
+	)
+
+	httpClient.WillReturnBody("GET", "url1", string(smallImg))
+	httpClient.WillReturnBody("GET", "url2", string(largeImg))
+
+	// when
+	filtered, err := imagesClient.FilterTooSmallImages(urls)
+
+	// then
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"url2"}, filtered)
+}
+
+func createImage(width, height int) []byte {
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+
+	// Fill the image with a solid color (for simplicity)
+	c := color.RGBA{R: 255, G: 0, B: 0, A: 255} // red color
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			img.Set(x, y, c)
+		}
+	}
+
+	// Encode the image to PNG format
+	var buf bytes.Buffer
+	err := png.Encode(&buf, img)
+	if err != nil {
+		panic(err) // Handle this more gracefully in a real application
+	}
+
+	return buf.Bytes()
 }

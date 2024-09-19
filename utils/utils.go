@@ -56,3 +56,16 @@ func Flatten[T any](sliceOfSlices [][]T) []T {
 	}
 	return flatSlice
 }
+
+func RemoveDuplicates[T comparable](slice []T) []T {
+	encountered := map[T]bool{}
+	result := []T{}
+
+	for _, v := range slice {
+		if !encountered[v] {
+			encountered[v] = true
+			result = append(result, v)
+		}
+	}
+	return result
+}

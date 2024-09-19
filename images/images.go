@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"os"
 
@@ -18,7 +19,8 @@ type ImagesClient interface {
 	CaptionsFor(image string) ([]string, error)
 	AiImageFrom(prompt string, model AiImageModel) ([]byte, error)
 	StockImageFrom(prompt string) (string, error)
-	BestImageFor(desiredFeatures []string, prompt string) (string, error)
+	BestImageFor(ctxt context.Context, desiredFeatures []string, guaranteedImages []string, relevanceDescription string, prompt string) (string, error)
+	FilterTooSmallImages(images []string) ([]string, error)
 }
 
 type HttpImageClient struct {
@@ -99,7 +101,13 @@ func (ic *HttpImageClient) StockImageFrom(prompt string) (string, error) {
 	return "", nil
 }
 
-func (ic *HttpImageClient) BestImageFor(ctxt context.Context, desiredFeatures []string, relevanceDescription string, prompt string) (string, error) {
+// TODO: add some max for number of images tested?
+func (ic *HttpImageClient) BestImageFor(ctxt context.Context, desiredFeatures []string, guaranteedImages []string, relevanceDescription string, prompt string) (string, error) {
+	if len(guaranteedImages) > 25 {
+		slog.Warn("Too many guaranteed images, truncating to 25")
+		guaranteedImages = guaranteedImages[:25]
+	}
+
 	embeddings, err := ic.openaiClient.Embeddings(desiredFeatures)
 	if err != nil {
 		return "", err
@@ -114,19 +122,21 @@ func (ic *HttpImageClient) BestImageFor(ctxt context.Context, desiredFeatures []
 		return "", err
 	}
 
-	allImages := []string{}
+	allImages := guaranteedImages
 	for _, f := range utils.Flatten(results) {
 		allImages = append(allImages, f.Item.ImageUrl)
 	}
+
+	uniqueImages := utils.RemoveDuplicates(allImages)
 
 	if len(allImages) == 0 {
 		return ic.base64AiImageFrom(prompt)
 	}
 
-	imgPrompt := fmt.Sprintf("%s\n%s", relevanceDescription, bestImagePrompt)
+	imgPrompt := fmt.Sprintf(bestImagePrompt, relevanceDescription)
 
 	index, err := utils.Retry(3, func() (int, error) {
-		i, err := ic.openaiClient.ImageCompletion(ctxt, imgPrompt, allImages, openai.GPT4o)
+		i, err := ic.openaiClient.ImageCompletion(ctxt, imgPrompt, uniqueImages, openai.GPT4o)
 		if err != nil {
 			return 0, err
 		}
@@ -141,7 +151,27 @@ func (ic *HttpImageClient) BestImageFor(ctxt context.Context, desiredFeatures []
 		return ic.base64AiImageFrom(prompt)
 	}
 
-	return allImages[index], nil
+	return uniqueImages[index], nil
+}
+
+func (ic *HttpImageClient) FilterTooSmallImages(images []string) ([]string, error) {
+	var (
+		filteredImages []string
+	)
+
+	for _, img := range images {
+		isSmall, err := ic.isImageBelow400FromURL(img)
+		if err != nil {
+			slog.Warn(fmt.Sprintf("Error checking image size: %v", err))
+			continue
+		}
+
+		if !isSmall {
+			filteredImages = append(filteredImages, img)
+		}
+	}
+
+	return filteredImages, nil
 }
 
 func (ic *HttpImageClient) base64AiImageFrom(prompt string) (string, error) {

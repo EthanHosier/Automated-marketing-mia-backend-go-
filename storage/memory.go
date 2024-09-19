@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"sync"
 	"time"
 )
@@ -97,14 +98,23 @@ func (s *InMemoryStorage) getRandom(table TableName, limit int) ([]interface{}, 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	var keys []string
+
 	var result []interface{}
-	for _, value := range s.data[table] {
+	for key := range s.data[table] {
+		keys = append(keys, key)
+	}
+
+	slices.Sort(keys)
+
+	for _, key := range keys {
 		if limit == 0 {
 			break
 		}
-		result = append(result, value)
+		result = append(result, s.data[table][key])
 		limit--
 	}
+
 	return result, nil
 }
 

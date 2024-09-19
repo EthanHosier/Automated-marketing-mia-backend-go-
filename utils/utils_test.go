@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -168,6 +169,44 @@ func TestFlatten(t *testing.T) {
 		t.Run("FlattenTest", func(t *testing.T) {
 			result := Flatten(test.input)
 			assert.Equal(t, test.expectedOutput, result)
+		})
+	}
+}
+
+func TestRemoveDuplicatesInt(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []int
+		expected []int
+	}{
+		{
+			name:     "No duplicates",
+			input:    []int{1, 2, 3, 4, 5},
+			expected: []int{1, 2, 3, 4, 5},
+		},
+		{
+			name:     "With duplicates",
+			input:    []int{1, 2, 2, 3, 4, 5, 5},
+			expected: []int{1, 2, 3, 4, 5},
+		},
+		{
+			name:     "All duplicates",
+			input:    []int{1, 1, 1, 1, 1},
+			expected: []int{1},
+		},
+		{
+			name:     "Empty slice",
+			input:    []int{},
+			expected: []int{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := RemoveDuplicates(tt.input)
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("Expected %v, got %v", tt.expected, result)
+			}
 		})
 	}
 }
