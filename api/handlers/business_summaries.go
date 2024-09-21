@@ -5,12 +5,13 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/ethanhosier/mia-backend-go/images"
 	"github.com/ethanhosier/mia-backend-go/researcher"
 	"github.com/ethanhosier/mia-backend-go/storage"
 	"github.com/ethanhosier/mia-backend-go/utils"
 )
 
-func BusinessSummaries(store storage.Storage, rr researcher.Researcher) http.HandlerFunc {
+func BusinessSummaries(store storage.Storage, rr researcher.Researcher, imageClient images.ImagesClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := r.Context().Value(utils.UserIdKey).(string)
 		if !ok {
@@ -34,11 +35,17 @@ func BusinessSummaries(store storage.Storage, rr researcher.Researcher) http.Han
 			return
 		}
 
-		urls, businessSummaries, _, err := rr.BusinessSummary(req.Url)
+		urls, businessSummaries, imageUrls, err := rr.BusinessSummary(req.Url)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		captionsTasks := utils.DoAsyncList(imageUrls, func(imageUrl string) ([]string, error) {
+			return imageClient.CaptionsFor(imageUrl)
+		})
+
+		captions, err := utils.GetAsyncList(captionsTasks)
 
 		u := []researcher.SitemapUrl{}
 		for _, url := range urls {

@@ -18,6 +18,7 @@ type MockResearcher struct {
 	googleAdsKeywordsDataResults       map[string][]GoogleAdsKeyword
 	optimalKeywordsResults             map[string][2]string
 	socialMediaPostsForResults         map[string][]SocialMediaPost
+	embeddingsFromResults              map[string][][]float32
 
 	// Use this to signal if an error should be returned
 	sitemapError                     map[string]error
@@ -31,6 +32,7 @@ type MockResearcher struct {
 	googleAdsKeywordsDataError       map[string]error
 	optimalKeywordsError             map[string]error
 	socialMediaPostsForError         map[string]error
+	embeddingsFromError              map[string]error
 }
 
 // NewMockResearcher creates a new instance of MockResearcher.
@@ -47,6 +49,7 @@ func NewMockResearcher() *MockResearcher {
 		googleAdsKeywordsDataResults:       make(map[string][]GoogleAdsKeyword),
 		optimalKeywordsResults:             make(map[string][2]string),
 		socialMediaPostsForResults:         make(map[string][]SocialMediaPost),
+		embeddingsFromResults:              make(map[string][][]float32),
 
 		sitemapError:                     make(map[string]error),
 		businessSummaryError:             make(map[string]error),
@@ -59,6 +62,7 @@ func NewMockResearcher() *MockResearcher {
 		googleAdsKeywordsDataError:       make(map[string]error),
 		optimalKeywordsError:             make(map[string]error),
 		socialMediaPostsForError:         make(map[string]error),
+		embeddingsFromError:              make(map[string]error),
 	}
 }
 
@@ -129,6 +133,12 @@ func (m *MockResearcher) ResearchReportFromPostsWillReturn(posts []SocialMediaPo
 func (m *MockResearcher) SocialMediaPostsForWillReturn(keyword string, posts []SocialMediaPost, err error) {
 	m.socialMediaPostsForResults[keyword] = posts
 	m.socialMediaPostsForError[keyword] = err
+}
+
+func (m *MockResearcher) EmbeddingsForWillReturn(urls []string, result [][]float32, err error) {
+	key := strings.Join(urls, ",")
+	m.embeddingsFromResults[key] = result
+	m.embeddingsFromError[key] = err
 }
 
 // Implement the Researcher methods to use mocked results
@@ -259,4 +269,14 @@ func keywordsToString(keywords []GoogleAdsKeyword) string {
 		keyParts = append(keyParts, kw.Keyword)
 	}
 	return strings.Join(keyParts, ",")
+}
+
+func (m *MockResearcher) EmbeddingsFor(urls []string) ([][]float32, error) {
+	key := strings.Join(urls, ",")
+	result, ok := m.embeddingsFromResults[key]
+	if !ok {
+		return nil, errors.New("no result set for EmbeddingsFor")
+	}
+	err := m.embeddingsFromError[key]
+	return result, err
 }

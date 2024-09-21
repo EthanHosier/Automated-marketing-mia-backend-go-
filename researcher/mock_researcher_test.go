@@ -364,3 +364,21 @@ func TestOptimalKeywords_Error(t *testing.T) {
 	assert.Empty(t, primaryKeyword, "expected primary keyword to be empty")
 	assert.Empty(t, secondaryKeyword, "expected secondary keyword to be empty")
 }
+
+func TestEmbeddingsFor_Success(t *testing.T) {
+	// given
+	var (
+		mockResearcher = NewMockResearcher()
+		urls           = []string{"url1", "url2"}
+		embeddings     = [][]float32{{1, 2}, {3, 4}}
+	)
+
+	mockResearcher.EmbeddingsForWillReturn(urls, embeddings, nil)
+
+	// when
+	result, err := mockResearcher.EmbeddingsFor(urls)
+
+	// then
+	assert.NoError(t, err, "expected no error but got one")
+	assert.ElementsMatch(t, embeddings, result, "expected embeddings to match")
+}

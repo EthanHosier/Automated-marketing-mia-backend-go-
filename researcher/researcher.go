@@ -28,6 +28,7 @@ type Researcher interface {
 	ResearchReportFromPosts(posts []SocialMediaPost) (string, error)
 	GoogleAdsKeywordsData(keywords []string) ([]GoogleAdsKeyword, error)
 	OptimalKeywords(keywords []GoogleAdsKeyword) (string, string, error)
+	EmbeddingsFor(urls []string) ([][]float32, error) // TODO: move this somewhere else
 }
 
 type ResearcherClient struct {
@@ -273,4 +274,8 @@ func (r *ResearcherClient) businessSummaryPoints(jsonString string) (*BusinessSu
 	err = json.Unmarshal([]byte(extractedObj), &businessSummary)
 
 	return &businessSummary, err
+}
+
+func (r *ResearcherClient) EmbeddingsFor(urls []string) ([][]float32, error) {
+	return r.openaiClient.Embeddings(urls)
 }

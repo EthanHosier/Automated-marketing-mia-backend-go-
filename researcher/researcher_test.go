@@ -342,3 +342,23 @@ func TestSocialMediaPostsFor(t *testing.T) {
 
 	assert.ElementsMatch(t, expectedPostsFlat, actualPosts)
 }
+
+func TestEmbeddingsFor(t *testing.T) {
+	// given
+	var (
+		mockOpenaiClient = &openai.MockOpenaiClient{}
+		researcher       = New(nil, mockOpenaiClient)
+
+		urls               = []string{"http://example.com/page1", "http://example.com/page2"}
+		expectedEmbeddings = [][]float32{{0.1, 0.2, 0.3}, {0.4, 0.5, 0.6}}
+	)
+
+	mockOpenaiClient.WillReturnEmbeddings(urls, expectedEmbeddings)
+
+	// when
+	embeddings, err := researcher.EmbeddingsFor(urls)
+
+	// then
+	require.NoError(t, err)
+	assert.Equal(t, expectedEmbeddings, embeddings)
+}

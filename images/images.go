@@ -159,15 +159,23 @@ func (ic *HttpImageClient) FilterTooSmallImages(images []string) ([]string, erro
 		filteredImages []string
 	)
 
-	for _, img := range images {
+	tasks := utils.DoAsyncList(images, func(img string) (bool, error) {
 		isSmall, err := ic.isImageBelow400FromURL(img)
 		if err != nil {
-			slog.Warn(fmt.Sprintf("Error checking image size: %v", err))
-			continue
+			return false, err
 		}
 
-		if !isSmall {
-			filteredImages = append(filteredImages, img)
+		return !isSmall, nil
+	})
+
+	results, err := utils.GetAsyncList(tasks)
+	if err != nil {
+		return nil, fmt.Errorf("error filtering images %v", err)
+	}
+
+	for i, r := range results {
+		if r {
+			filteredImages = append(filteredImages, images[i])
 		}
 	}
 
