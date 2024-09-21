@@ -59,7 +59,7 @@ func TestGetAll(t *testing.T) {
 	)
 
 	// when
-	StoreAll(storage, templates)
+	StoreAll(storage, templates...)
 	results, err := GetAll[Template](storage, nil)
 
 	// then
@@ -103,7 +103,7 @@ func TestStoreAll(t *testing.T) {
 		{ID: "2", Title: "Template 2"},
 		{ID: "3", Title: "Template 3"},
 	}
-	err := StoreAll(storage, templates)
+	err := StoreAll(storage, templates...)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestStoreAllUnregisteredType(t *testing.T) {
 		{ID: "1", Value: "Value 1"},
 		{ID: "2", Value: "Value 2"},
 	}
-	err := StoreAll(storage, items)
+	err := StoreAll(storage, items...)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -234,7 +234,7 @@ func TestGetClosest(t *testing.T) {
 	)
 
 	// when
-	StoreAll(storage, []ImageFeature{feature1, feature2})
+	StoreAll(storage, feature1, feature2)
 	result, err := GetClosest[ImageFeature](ctxt, storage, []float32{1, 2, 3}, 2)
 
 	// then
