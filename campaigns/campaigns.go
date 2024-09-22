@@ -1,10 +1,12 @@
 package campaigns
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ethanhosier/mia-backend-go/campaigns/campaign_helper"
 	"github.com/ethanhosier/mia-backend-go/canva"
+	"github.com/ethanhosier/mia-backend-go/images"
 	"github.com/ethanhosier/mia-backend-go/openai"
 	"github.com/ethanhosier/mia-backend-go/researcher"
 	"github.com/ethanhosier/mia-backend-go/storage"
@@ -20,14 +22,16 @@ type CampaignClient struct {
 	storage        storage.Storage
 	researcher     researcher.Researcher
 	canvaClient    canva.CanvaClient
+	imagesClient   images.ImagesClient
 }
 
-func NewCampaignClient(openaiClient openai.OpenaiClient, researcher researcher.Researcher, canvaClient canva.CanvaClient, storage storage.Storage, campaignHelper campaign_helper.CampaignHelper) *CampaignClient {
+func NewCampaignClient(openaiClient openai.OpenaiClient, researcher researcher.Researcher, canvaClient canva.CanvaClient, storage storage.Storage, imagesClient images.ImagesClient, campaignHelper campaign_helper.CampaignHelper) *CampaignClient {
 	return &CampaignClient{
 		campaignHelper: campaignHelper,
 		storage:        storage,
 		researcher:     researcher,
 		canvaClient:    canvaClient,
+		imagesClient:   imagesClient,
 	}
 }
 
@@ -45,7 +49,7 @@ func (c *CampaignClient) GenerateThemesForUser(userID string) ([]campaign_helper
 	return c.campaignHelper.GenerateThemes(candidatePageContents, businessSummary)
 }
 
-func (c *CampaignClient) CampaignFrom(theme campaign_helper.CampaignTheme, businessSummary *researcher.BusinessSummary) ([]*canva.Design, string, error) {
+func (c *CampaignClient) CampaignFrom(ctxt context.Context, theme campaign_helper.CampaignTheme, businessSummary *researcher.BusinessSummary) ([]*canva.Design, string, error) {
 
 	scrapedPageBodyTask := utils.DoAsync[string](func() (string, error) {
 		return c.researcher.PageBodyTextFor(theme.Url)
@@ -97,7 +101,7 @@ func (c *CampaignClient) CampaignFrom(theme campaign_helper.CampaignTheme, busin
 		)
 
 		tasks = append(tasks, utils.DoAsync(func() (*canva.UpdateTemplateResult, error) {
-			return c.templateFrom(templatePrompt, campaignDetailsStr, *scrapedPageContents, template)
+			return c.templateFrom(ctxt, templatePrompt, campaignDetailsStr, *scrapedPageContents, template)
 		}))
 	}
 
@@ -119,13 +123,19 @@ func (c *CampaignClient) CampaignFrom(theme campaign_helper.CampaignTheme, busin
 	return results, researchReport, nil
 }
 
-func (c *CampaignClient) templateFrom(templatePrompt string, campaignDetailsStr string, scrapedPageContents researcher.PageContents, template storage.Template) (*canva.UpdateTemplateResult, error) {
+func (c *CampaignClient) templateFrom(ctxt context.Context, templatePrompt string, campaignDetailsStr string, scrapedPageContents researcher.PageContents, template storage.Template) (*canva.UpdateTemplateResult, error) {
 	templatePlan, err := c.campaignHelper.TemplatePlan(templatePrompt, template)
+	fmt.Printf("Template Plan: %+v\n\n", templatePlan)
 	if err != nil {
 		return nil, err
 	}
 
-	textFields, imageFields, colorFields, err := c.campaignHelper.InitFields(templatePlan, campaignDetailsStr, scrapedPageContents.ImageUrls)
+	candidateImages, err := c.imagesClient.FilterTooSmallImages(scrapedPageContents.ImageUrls)
+	if err != nil {
+		return nil, err
+	}
+
+	textFields, imageFields, colorFields, err := c.campaignHelper.InitFields(ctxt, templatePlan, campaignDetailsStr, candidateImages)
 	if err != nil {
 		return nil, err
 	}

@@ -69,3 +69,28 @@ func RemoveDuplicates[T comparable](slice []T) []T {
 	}
 	return result
 }
+
+func RemoveElements[T comparable](slice1, slice2 []T) []T {
+	toRemove := make(map[T]bool)
+	for _, v := range slice2 {
+		toRemove[v] = true
+	}
+
+	result := make([]T, 0, len(slice1))
+
+	for _, v := range slice1 {
+		if !toRemove[v] {
+			result = append(result, v)
+		}
+	}
+
+	return result
+}
+
+func GetKeysFromMap[K comparable, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m)) // Create a slice with the length of the map for efficiency
+	for key := range m {
+		keys = append(keys, key)
+	}
+	return keys
+}

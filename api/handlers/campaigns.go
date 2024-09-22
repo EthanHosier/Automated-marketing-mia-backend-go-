@@ -33,7 +33,7 @@ func GenerateCampaigns(store storage.Storage, campaignClient *campaigns.Campaign
 			return
 		}
 
-		templates, researchReport, err := campaignClient.CampaignFrom(themes[0], businessSummary)
+		templates, researchReport, err := campaignClient.CampaignFrom(r.Context(), themes[0], businessSummary)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

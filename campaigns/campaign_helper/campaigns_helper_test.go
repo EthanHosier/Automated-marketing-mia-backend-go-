@@ -1,6 +1,7 @@
 package campaign_helper
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -16,7 +17,7 @@ func TestChosenKeywords(t *testing.T) {
 	var (
 		r = researcher.NewMockResearcher()
 
-		c = NewCampaignHelperClient(nil, r, nil, nil)
+		c = NewCampaignHelperClient(nil, r, nil, nil, nil)
 
 		keywords    = []string{"keyword1"}
 		adsKeywords = []researcher.GoogleAdsKeyword{
@@ -47,7 +48,7 @@ func TestThemesWithGivenKeywords(t *testing.T) {
 	// given
 	var (
 		r = researcher.NewMockResearcher()
-		c = NewCampaignHelperClient(nil, r, nil, nil)
+		c = NewCampaignHelperClient(nil, r, nil, nil, nil)
 
 		keywords    = []string{"keyword1"}
 		adsKeywords = []researcher.GoogleAdsKeyword{
@@ -90,7 +91,7 @@ func TestCandidatePagesForUser(t *testing.T) {
 	var (
 		r = researcher.NewMockResearcher()
 		s = storage.NewInMemoryStorage()
-		c = NewCampaignHelperClient(nil, r, nil, s)
+		c = NewCampaignHelperClient(nil, r, nil, s, nil)
 
 		userID     = "user1"
 		sitemapUrl = researcher.SitemapUrl{
@@ -121,7 +122,7 @@ func TestBestImage(t *testing.T) {
 	// given
 	var (
 		op = openai.MockOpenaiClient{}
-		c  = NewCampaignHelperClient(&op, nil, nil, nil)
+		c  = NewCampaignHelperClient(&op, nil, nil, nil, nil)
 
 		campaignDetailsStr = "campaignDetails"
 		imageDescription   = "imageDescription"
@@ -143,7 +144,7 @@ func TestThemes(t *testing.T) {
 	// given
 	var (
 		op = openai.MockOpenaiClient{}
-		c  = NewCampaignHelperClient(&op, nil, nil, nil)
+		c  = NewCampaignHelperClient(&op, nil, nil, nil, nil)
 
 		themePrompt = "themePrompt"
 		theme1      = themeWithSuggestedKeywords{
@@ -197,7 +198,7 @@ func TestGenerateThemes(t *testing.T) {
 	var (
 		op = openai.MockOpenaiClient{}
 		r  = researcher.NewMockResearcher()
-		c  = NewCampaignHelperClient(&op, r, nil, nil)
+		c  = NewCampaignHelperClient(&op, r, nil, nil, nil)
 
 		theme1 = themeWithSuggestedKeywords{
 			Theme:                         "Modern",
@@ -292,7 +293,7 @@ func TestInitColorFields(t *testing.T) {
 	// given
 	var (
 		canvaClient = canva.MockCanvaClient{}
-		c           = NewCampaignHelperClient(nil, nil, &canvaClient, nil)
+		c           = NewCampaignHelperClient(nil, nil, &canvaClient, nil, nil)
 
 		color1 = "#FFFFFF"
 		color2 = "#000000"
@@ -328,7 +329,7 @@ func TestInitImageFields(t *testing.T) {
 	var (
 		canvaClient = canva.MockCanvaClient{}
 		op          = openai.MockOpenaiClient{}
-		c           = NewCampaignHelperClient(&op, nil, &canvaClient, nil)
+		c           = NewCampaignHelperClient(&op, nil, &canvaClient, nil, nil)
 
 		imgFields = []PopulatedField{
 			{
@@ -359,7 +360,7 @@ func TestInitImageFields(t *testing.T) {
 	canvaClient.WillReturnUploadImageAssets(candidateImages, []string{imgAssetId1, imgAssetId2})
 
 	// when
-	res, err := c.initImageFields(imgFields, candidateImages, campaignDetailsStr)
+	res, err := c.initImageFields(context.TODO(), imgFields, candidateImages, campaignDetailsStr)
 
 	// then
 	assert.NoError(t, err)
@@ -373,7 +374,7 @@ func TestInitFields(t *testing.T) {
 	var (
 		canvaClient = canva.MockCanvaClient{}
 		op          = openai.MockOpenaiClient{}
-		c           = NewCampaignHelperClient(&op, nil, &canvaClient, nil)
+		c           = NewCampaignHelperClient(&op, nil, &canvaClient, nil, nil)
 
 		imgFields = []PopulatedField{
 			{
@@ -442,7 +443,7 @@ func TestInitFields(t *testing.T) {
 	canvaClient.WillReturnUploadColorAssets([]string{color1, color2}, []string{colorAssetId1, colorAssetId2})
 
 	// when
-	textRes, imgRes, colorRes, err := c.InitFields(&extractedTemplate, campaignDetailsStr, candidateImages)
+	textRes, imgRes, colorRes, err := c.InitFields(context.TODO(), &extractedTemplate, campaignDetailsStr, candidateImages)
 
 	// then
 	assert.NoError(t, err)
@@ -462,7 +463,7 @@ func TestInitFields(t *testing.T) {
 func TestTemplatePlan(t *testing.T) {
 	var (
 		op = openai.MockOpenaiClient{}
-		c  = NewCampaignHelperClient(&op, nil, nil, nil)
+		c  = NewCampaignHelperClient(&op, nil, nil, nil, nil)
 
 		templatePrompt        = "template prompt"
 		extractedTemplateJSON = `{
@@ -544,7 +545,7 @@ func TestRephraseTextFieldCharsWithRetry(t *testing.T) {
 	// given
 	var (
 		op = openai.MockOpenaiClient{}
-		c  = NewCampaignHelperClient(&op, nil, nil, nil)
+		c  = NewCampaignHelperClient(&op, nil, nil, nil, nil)
 
 		text      = "This is a sample text."
 		shortText = "short"

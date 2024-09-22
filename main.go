@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	_ "image/jpeg"
 	_ "image/png"
 	"log"
@@ -12,7 +11,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func main2() {
+func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
@@ -23,8 +22,4 @@ func main2() {
 	server := api.NewServer(*listenAddr, config.NewProdServerConfig())
 	log.Printf("Starting server on %s", *listenAddr)
 	log.Fatal(server.Start())
-}
-
-func main() {
-	fmt.Println("Hello, World!")
 }

@@ -75,7 +75,7 @@ func (oc *GoOpenaiClient) ImageCompletion(ctx context.Context, prompt string, im
 			MultiContent: []openai.ChatMessagePart{
 				{
 					Type:     openai.ChatMessagePartTypeImageURL,
-					ImageURL: &openai.ChatMessageImageURL{URL: image},
+					ImageURL: &openai.ChatMessageImageURL{URL: image, Detail: "auto"},
 				},
 			},
 		})
@@ -98,7 +98,7 @@ func (oc *GoOpenaiClient) ImageCompletion(ctx context.Context, prompt string, im
 	)
 
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error creating image completion: %w, for images %+v", err, images)
 	}
 
 	oc.usageCh <- UsageData{resp.Usage, prompt}

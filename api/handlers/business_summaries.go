@@ -9,6 +9,7 @@ import (
 	"github.com/ethanhosier/mia-backend-go/researcher"
 	"github.com/ethanhosier/mia-backend-go/storage"
 	"github.com/ethanhosier/mia-backend-go/utils"
+	"github.com/google/uuid"
 )
 
 func BusinessSummaries(store storage.Storage, rr researcher.Researcher, imageClient images.ImagesClient) http.HandlerFunc {
@@ -41,18 +42,77 @@ func BusinessSummaries(store storage.Storage, rr researcher.Researcher, imageCli
 			return
 		}
 
-		captionsTasks := utils.DoAsyncList(imageUrls, func(imageUrl string) ([]string, error) {
-			return imageClient.CaptionsFor(imageUrl)
+		notTooSmallUrls, err := imageClient.FilterTooSmallImages(imageUrls)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		urlIsValid := make([]bool, len(imageUrls))
+		captionsList, err := imageClient.CaptionsForAll(notTooSmallUrls[:min(50, len(notTooSmallUrls))])
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		for i, captions := range captionsList {
+			if len(captions) == 0 {
+				urlIsValid[i] = false
+			} else {
+				urlIsValid[i] = true
+			}
+		}
+
+		validUrls := []string{}
+		for i, isValid := range urlIsValid {
+			if isValid {
+				validUrls = append(validUrls, notTooSmallUrls[i])
+			}
+		}
+
+		validCaptions := [][]string{}
+		for _, cl := range captionsList {
+			if len(cl) > 0 {
+				validCaptions = append(validCaptions, cl)
+			}
+		}
+
+		// TODO: make this flat so all in one request
+		embeddingsTaks := utils.DoAsyncList(validCaptions, func(captions []string) ([][]float32, error) {
+			return rr.EmbeddingsFor(captions)
 		})
 
-		captions, err := utils.GetAsyncList(captionsTasks)
+		embeddings, err := utils.GetAsyncList(embeddingsTaks)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		imgFeatures := []storage.ImageFeature{}
+		for i, captions := range validCaptions {
+			for ci, caption := range captions {
+				imgFeatures = append(imgFeatures, storage.ImageFeature{
+					ID:               uuid.New().String(),
+					Feature:          caption,
+					FeatureEmbedding: embeddings[i][ci],
+					UserId:           userID,
+					ImageUrl:         validUrls[i],
+				})
+			}
+		}
+
+		err = storage.StoreAll(store, imgFeatures...)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 		u := []researcher.SitemapUrl{}
 		for _, url := range urls {
 			u = append(u, researcher.SitemapUrl{Url: url, ID: userID})
 		}
 
-		err = storage.StoreAll(store, u)
+		err = storage.StoreAll(store, u...)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

@@ -76,9 +76,10 @@ You are given the following details about a social media campaign:
 
 I am going to give you a list of image urls. You need to select the best image for the campaign. Your answer must be the index of the image (0 indexing) and nothing more. You must pick one image.
 
-This is some info about image you must select:
+This is some info about the desired image you must select:
 %+v
 
+If there is no relevant image, return -1
 Here is the list of images:
 `
 	PopulateTemplatePlanPrompt = `**Role**: You are a Social Media Content Creator, Designer, and AI Image Prompt Engineer skilled at crafting engaging and viral social media posts tailored to a business’s marketing theme, insights from research reports, and utilizing Canva templates to create visually appealing graphics. Each platform will have its own distinct template, and any image fields will include detailed prompts for AI image generation.

@@ -25,7 +25,7 @@ func NewServer(listenAddr string, config config.ServerConfig) *Server {
 }
 
 func (s *Server) routes() {
-	s.router.HandleFunc("POST /business-summaries", handlers.BusinessSummaries(s.config.Store, s.config.Researcher))
+	s.router.HandleFunc("POST /business-summaries", handlers.BusinessSummaries(s.config.Store, s.config.Researcher, s.config.ImagesClient))
 	s.router.HandleFunc("PATCH /business-summaries", handlers.PatchBusinessSummaries(s.config.Store))
 	s.router.HandleFunc("GET /business-summaries", handlers.GetBusinessSummaries(s.config.Store))
 

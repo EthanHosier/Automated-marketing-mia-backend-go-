@@ -31,9 +31,9 @@ func NewProdServerConfig() ServerConfig {
 		storageClient  = storage.NewSupabaseStorage(newSupabaseClient(), os.Getenv("SUPABASE_URL"), os.Getenv("SUPABASE_SERVICE_KEY"), httpClient)
 
 		r               = researcher.New(servicesClient, openaiClient)
-		campaign_helper = campaign_helper.NewCampaignHelperClient(openaiClient, r, canvaClient, storageClient)
-		c               = campaigns.NewCampaignClient(openaiClient, r, canvaClient, storageClient, campaign_helper)
 		imagesClient    = images.NewHttpImageClient(httpClient, storageClient, openaiClient)
+		campaign_helper = campaign_helper.NewCampaignHelperClient(openaiClient, r, canvaClient, storageClient, imagesClient)
+		c               = campaigns.NewCampaignClient(openaiClient, r, canvaClient, storageClient, imagesClient, campaign_helper)
 	)
 
 	return ServerConfig{

@@ -1,6 +1,8 @@
 ## Todo
 
-[X] Parallise image size checking from url
-[ ] In the onboarding process, categorise all the urls (including filtering out too small)
-[ ] Alter prompt to return the required stuff ("desired features" etc)
-[ ] Integrate rest of workflow
+[ ] Make the actual google search stuff happen again
+[ ] Add tests
+
+## Then
+
+Make microservice which takes image, compresses for image upload, and returns as a png (to avoid invalid image error)

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"mime/multipart"
 	"os"
+	"strings"
 
 	"github.com/ethanhosier/mia-backend-go/http"
 	"github.com/ethanhosier/mia-backend-go/openai"
@@ -17,6 +18,7 @@ import (
 
 type ImagesClient interface {
 	CaptionsFor(image string) ([]string, error)
+	CaptionsForAll(images []string) ([][]string, error)
 	AiImageFrom(prompt string, model AiImageModel) ([]byte, error)
 	StockImageFrom(prompt string) (string, error)
 	BestImageFor(ctxt context.Context, desiredFeatures []string, guaranteedImages []string, relevanceDescription string, prompt string) (string, error)
@@ -39,14 +41,25 @@ func NewHttpImageClient(httpClient http.Client, store storage.Storage, openaiCli
 
 func (ic *HttpImageClient) CaptionsFor(image string) ([]string, error) {
 	return utils.Retry(3, func() ([]string, error) {
-		return ic.getCaptionsCompletionArr(image)
+		captions, err := ic.getCaptionsCompletionArr(image)
+
+		if err != nil && strings.Contains(err.Error(), "You uploaded an unsupported image") {
+			slog.Info("Unsupported image, will skip", "url", image)
+			return []string{}, nil
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("error getting captions: %v", err)
+		}
+
+		return captions, nil
 	})
 }
 
 // TODO: this is gonna obliterate the rate limit
 func (ic *HttpImageClient) CaptionsForAll(images []string) ([][]string, error) {
 	tasks := utils.DoAsyncList(images, func(image string) ([]string, error) {
-		return ic.getCaptionsCompletionArr(image)
+		return ic.CaptionsFor(image)
 	})
 
 	return utils.GetAsyncList(tasks)
@@ -84,7 +97,7 @@ func (ic *HttpImageClient) AiImageFrom(prompt string, model AiImageModel) ([]byt
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected response status: %v", resp.Status)
+		return nil, fmt.Errorf("unexpected response status: %v for url %v", resp.Status, url)
 	}
 
 	defer resp.Body.Close()
@@ -127,6 +140,8 @@ func (ic *HttpImageClient) BestImageFor(ctxt context.Context, desiredFeatures []
 		allImages = append(allImages, f.Item.ImageUrl)
 	}
 
+	fmt.Printf("allImages: %v\n", allImages)
+
 	uniqueImages := utils.RemoveDuplicates(allImages)
 
 	if len(allImages) == 0 {
@@ -162,7 +177,8 @@ func (ic *HttpImageClient) FilterTooSmallImages(images []string) ([]string, erro
 	tasks := utils.DoAsyncList(images, func(img string) (bool, error) {
 		isSmall, err := ic.isImageBelow400FromURL(img)
 		if err != nil {
-			return false, err
+			slog.Info("error checking image size", "err", err, "url", img)
+			return false, nil
 		}
 
 		return !isSmall, nil
@@ -183,7 +199,8 @@ func (ic *HttpImageClient) FilterTooSmallImages(images []string) ([]string, erro
 }
 
 func (ic *HttpImageClient) base64AiImageFrom(prompt string) (string, error) {
-	img, err := ic.AiImageFrom(prompt, openai.GPT4o)
+	slog.Info("Generating AI image from prompt", "prompt", prompt)
+	img, err := ic.AiImageFrom(prompt, StableImageCore)
 	if err != nil {
 		return "", err
 	}

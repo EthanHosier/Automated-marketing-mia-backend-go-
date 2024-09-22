@@ -423,6 +423,16 @@ func (c *CanvaHttpClient) UploadImageAssets(images []string) ([]string, error) {
 }
 
 func (c *CanvaHttpClient) downloadAndUploadImageAsset(image string) (*Asset, error) {
+	if strings.HasPrefix(image, "data:") {
+		b64data := image[strings.IndexByte(image, ',')+1:]
+		imageBytes, err := base64.StdEncoding.DecodeString(b64data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode base64 image: %v", err)
+		}
+
+		return c.uploadAsset(imageBytes, "name")
+	}
+
 	img, err := c.downloadImage(image)
 
 	if err != nil {

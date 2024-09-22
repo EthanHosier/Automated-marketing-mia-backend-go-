@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"sync"
 
 	"github.com/ethanhosier/mia-backend-go/canva"
+	"github.com/ethanhosier/mia-backend-go/images"
 	"github.com/ethanhosier/mia-backend-go/openai"
 	"github.com/ethanhosier/mia-backend-go/researcher"
 	"github.com/ethanhosier/mia-backend-go/storage"
@@ -20,7 +23,7 @@ type CampaignHelper interface {
 	GetCandidatePageContentsForUser(userID string, n int) ([]researcher.PageContents, error)
 	GenerateThemes(pageContents []researcher.PageContents, businessSummary *researcher.BusinessSummary) ([]CampaignTheme, error)
 	TemplatePlan(templatePrompt string, templateToFill storage.Template) (*ExtractedTemplate, error)
-	InitFields(template *ExtractedTemplate, campaignDetailsStr string, candidateImages []string) ([]canva.TextField, []canva.ImageField, []canva.ColorField, error)
+	InitFields(ctxt context.Context, template *ExtractedTemplate, campaignDetailsStr string, candidateImages []string) ([]canva.TextField, []canva.ImageField, []canva.ColorField, error)
 }
 
 type CampaignHelperClient struct {
@@ -28,14 +31,16 @@ type CampaignHelperClient struct {
 	researcher   researcher.Researcher
 	canvaClient  canva.CanvaClient
 	storage      storage.Storage
+	imagesClient images.ImagesClient
 }
 
-func NewCampaignHelperClient(openaiClient openai.OpenaiClient, researcher researcher.Researcher, canvaClient canva.CanvaClient, storage storage.Storage) *CampaignHelperClient {
+func NewCampaignHelperClient(openaiClient openai.OpenaiClient, researcher researcher.Researcher, canvaClient canva.CanvaClient, storage storage.Storage, imagesClient images.ImagesClient) *CampaignHelperClient {
 	return &CampaignHelperClient{
 		openaiClient: openaiClient,
 		researcher:   researcher,
 		canvaClient:  canvaClient,
 		storage:      storage,
+		imagesClient: imagesClient,
 	}
 }
 
@@ -102,7 +107,8 @@ func (c *CampaignHelperClient) rephraseTextFieldCharsWithRetry(maxChars int, fie
 		rephrased, err := c.openaiClient.ChatCompletion(context.TODO(), fmt.Sprintf(openai.MaxCharsPrompt, maxChars, field.Value), openai.GPT4o)
 
 		if len(rephrased) > maxChars {
-			return "", fmt.Errorf("rephrased text too long")
+			slog.Warn("Rephrased text too long", "rephrased", rephrased)
+			return rephrased[:maxChars], nil
 		}
 
 		return rephrased, err
@@ -118,7 +124,7 @@ func (c *CampaignHelperClient) rephraseTextFieldCharsWithRetry(maxChars int, fie
 	}, err
 }
 
-func (c *CampaignHelperClient) InitFields(template *ExtractedTemplate, campaignDetailsStr string, candidateImages []string) ([]canva.TextField, []canva.ImageField, []canva.ColorField, error) {
+func (c *CampaignHelperClient) InitFields(ctxt context.Context, template *ExtractedTemplate, campaignDetailsStr string, candidateImages []string) ([]canva.TextField, []canva.ImageField, []canva.ColorField, error) {
 	textFields := []canva.TextField{}
 
 	imageUploadFields := []PopulatedField{}
@@ -135,7 +141,7 @@ func (c *CampaignHelperClient) InitFields(template *ExtractedTemplate, campaignD
 	}
 
 	imageFieldsTask := utils.DoAsync[[]canva.ImageField](func() ([]canva.ImageField, error) {
-		return c.initImageFields(imageUploadFields, candidateImages, campaignDetailsStr)
+		return c.initImageFields(ctxt, imageUploadFields, candidateImages, campaignDetailsStr)
 	})
 
 	colorFieldsTask := utils.DoAsync[[]canva.ColorField](func() ([]canva.ColorField, error) {
@@ -177,22 +183,11 @@ func (c *CampaignHelperClient) initColorFields(colorUploadFields []PopulatedColo
 	return colorFields, nil
 }
 
-func (c *CampaignHelperClient) initImageFields(imageUploadFields []PopulatedField, candidateImages []string, campaignDetailsStr string) ([]canva.ImageField, error) {
-	bestImageTasks := []*utils.Task[string]{}
+func (c *CampaignHelperClient) initImageFields(ctxt context.Context, imageUploadFields []PopulatedField, candidateImages []string, campaignDetailsStr string) ([]canva.ImageField, error) {
 
-	for _, field := range imageUploadFields {
-		bestImageTasks = append(bestImageTasks, utils.DoAsync[string](func() (string, error) {
-			return c.bestImage(field.Value, candidateImages, campaignDetailsStr)
-		}))
-	}
-
-	bestImages := []string{}
-	for _, task := range bestImageTasks {
-		bestImage, err := utils.GetAsync(task)
-		if err != nil {
-			return nil, err
-		}
-		bestImages = append(bestImages, bestImage)
+	bestImages, err := c.bestImages(ctxt, imageUploadFields, candidateImages, campaignDetailsStr)
+	if err != nil {
+		return nil, err
 	}
 
 	assetIds, err := c.canvaClient.UploadImageAssets(bestImages)
@@ -210,6 +205,54 @@ func (c *CampaignHelperClient) initImageFields(imageUploadFields []PopulatedFiel
 	}
 
 	return imageFields, nil
+}
+
+func (c *CampaignHelperClient) bestImages(ctxt context.Context, imageUploadFields []PopulatedField, candidateImages []string, campaignDetailsStr string) ([]string, error) {
+	imageSet := make(map[string]struct{})
+	mu := sync.Mutex{}
+
+	bestImageTasks := utils.DoAsyncList(imageUploadFields, func(p PopulatedField) (string, error) {
+		var (
+			maxRetries = 5
+			attempts   = 0
+			img        string
+			err        error
+			imgs       = candidateImages
+		)
+
+		captions, err := c.getCaptionsCompletionArr(p.Value)
+		if err != nil {
+			return "", err
+		}
+
+		for attempts < maxRetries {
+			attempts++
+
+			img, err = c.imagesClient.BestImageFor(ctxt, captions, imgs, campaignDetailsStr, p.Value)
+			if err != nil {
+				return "", err
+			}
+
+			mu.Lock()
+
+			if _, ok := imageSet[img]; ok {
+				imgs = utils.RemoveElements(imgs, utils.GetKeysFromMap(imageSet))
+
+				mu.Unlock()
+				slog.Info("Duplicate image found, retrying", "image", img)
+				continue
+			}
+
+			imageSet[img] = struct{}{}
+			mu.Unlock()
+
+			return img, nil
+		}
+
+		return "", fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
+	})
+
+	return utils.GetAsyncList(bestImageTasks)
 }
 
 func (c *CampaignHelperClient) bestImage(imageDescription string, candidateImages []string, campaignDetailsStr string) (string, error) {
@@ -242,6 +285,8 @@ func (c *CampaignHelperClient) GetCandidatePageContentsForUser(userID string, n 
 	if err != nil {
 		return nil, err
 	}
+
+	slog.Info("Random URLs", "urls", randomUrls)
 
 	pageContentsTasks := []*utils.Task[*researcher.PageContents]{}
 

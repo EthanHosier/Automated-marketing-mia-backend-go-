@@ -210,3 +210,142 @@ func TestRemoveDuplicatesInt(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoveElementsInt(t *testing.T) {
+	slice1 := []int{1, 2, 3, 4, 5}
+	slice2 := []int{2, 4}
+	expected := []int{1, 3, 5}
+
+	result := RemoveElements(slice1, slice2)
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+func TestRemoveElementsString(t *testing.T) {
+	slice1 := []string{"apple", "banana", "cherry", "banana"}
+	slice2 := []string{"banana"}
+	expected := []string{"apple", "cherry"}
+
+	result := RemoveElements(slice1, slice2)
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+func TestRemoveElementsNoMatch(t *testing.T) {
+	slice1 := []int{1, 2, 3}
+	slice2 := []int{4, 5}
+	expected := slice1 // No elements should be removed
+
+	result := RemoveElements(slice1, slice2)
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+func TestRemoveElementsAllMatch(t *testing.T) {
+	slice1 := []int{1, 2, 3}
+	slice2 := []int{1, 2, 3}
+	expected := []int{} // All elements should be removed
+
+	result := RemoveElements(slice1, slice2)
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+func TestRemoveElementsEmptySlices(t *testing.T) {
+	slice1 := []int{}
+	slice2 := []int{}
+	expected := []int{} // No elements in both slices
+
+	result := RemoveElements(slice1, slice2)
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+func TestRemoveElementsPartialMatch(t *testing.T) {
+	slice1 := []string{"red", "green", "blue"}
+	slice2 := []string{"green", "purple"}
+	expected := []string{"red", "blue"} // "green" should be removed
+
+	result := RemoveElements(slice1, slice2)
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+func TestGetKeysFromMapStringInt(t *testing.T) {
+	myMap := map[string]int{
+		"apple":  1,
+		"banana": 2,
+		"cherry": 3,
+	}
+
+	expected := []string{"apple", "banana", "cherry"}
+	result := GetKeysFromMap(myMap)
+
+	// Since map iteration order is random, we can check for set equality
+	if !equalUnordered(expected, result) {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+func TestGetKeysFromMapIntString(t *testing.T) {
+	myMap := map[int]string{
+		1: "one",
+		2: "two",
+		3: "three",
+	}
+
+	expected := []int{1, 2, 3}
+	result := GetKeysFromMap(myMap)
+
+	// Since map iteration order is random, we can check for set equality
+	if !equalUnordered(expected, result) {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+func TestGetKeysFromEmptyMap(t *testing.T) {
+	myMap := map[string]int{}
+
+	expected := []string{}
+	result := GetKeysFromMap(myMap)
+
+	if !reflect.DeepEqual(expected, result) {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+// Helper function to compare two slices, ignoring order
+func equalUnordered[T comparable](a, b []T) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	// Create a map to count occurrences of each element in `a`
+	counts := make(map[T]int)
+	for _, v := range a {
+		counts[v]++
+	}
+
+	// Decrement the counts based on elements in `b`
+	for _, v := range b {
+		counts[v]--
+		if counts[v] < 0 {
+			return false
+		}
+	}
+
+	// Check if all counts are 0, meaning all elements matched
+	for _, count := range counts {
+		if count != 0 {
+			return false
+		}
+	}
+
+	return true
+}
