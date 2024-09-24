@@ -48,6 +48,8 @@ const (
 	LinkedIn  SocialMediaPlatform = "linkedIn"
 	Google    SocialMediaPlatform = "google"
 	News      SocialMediaPlatform = "news"
+	Whatsapp  SocialMediaPlatform = "whatsapp"
+	TwitterX  SocialMediaPlatform = "twitter-x"
 )
 
-var SocialMediaPlatforms = []SocialMediaPlatform{Instagram, Facebook, LinkedIn, Google, News}
+var SocialMediaPlatforms = []SocialMediaPlatform{Instagram, Facebook, LinkedIn, Whatsapp, TwitterX}

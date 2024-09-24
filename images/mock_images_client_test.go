@@ -128,7 +128,7 @@ func TestMockBestImageFor(t *testing.T) {
 	mockClient.WillReturnBestImageFor(desiredFeatures, prompt, expectedImage)
 
 	// when
-	image, err := mockClient.BestImageFor(desiredFeatures, prompt)
+	image, err := mockClient.BestImageFor(nil, desiredFeatures, nil, "", prompt)
 
 	// then
 	assert.NoError(t, err)
@@ -147,7 +147,7 @@ func TestBestImageForError(t *testing.T) {
 	mockClient.WillReturnBestImageForError(desiredFeatures, prompt, expectedError)
 
 	// when
-	image, err := mockClient.BestImageFor(desiredFeatures, prompt)
+	image, err := mockClient.BestImageFor(nil, desiredFeatures, nil, "", prompt)
 
 	// then
 	assert.Empty(t, image)

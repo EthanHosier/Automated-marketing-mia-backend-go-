@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethanhosier/mia-backend-go/canva"
+	"github.com/ethanhosier/mia-backend-go/images"
 	"github.com/ethanhosier/mia-backend-go/openai"
 	"github.com/ethanhosier/mia-backend-go/researcher"
 	"github.com/ethanhosier/mia-backend-go/storage"
@@ -116,28 +117,6 @@ func TestCandidatePagesForUser(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, res, 1)
 	assert.Equal(t, pageContents[0].Url, res[0].Url)
-}
-
-func TestBestImage(t *testing.T) {
-	// given
-	var (
-		op = openai.MockOpenaiClient{}
-		c  = NewCampaignHelperClient(&op, nil, nil, nil, nil)
-
-		campaignDetailsStr = "campaignDetails"
-		imageDescription   = "imageDescription"
-		prompt             = fmt.Sprintf(openai.PickBestImagePrompt, campaignDetailsStr, imageDescription)
-		images             = []string{"image1", "image2"}
-	)
-
-	op.WillReturnImageCompletion(prompt, images, openai.GPT4o, "1")
-
-	// when
-	res, err := c.bestImage(imageDescription, images, campaignDetailsStr)
-
-	// then
-	assert.NoError(t, err)
-	assert.Equal(t, images[1], res)
 }
 
 func TestThemes(t *testing.T) {
@@ -574,4 +553,41 @@ func TestRephraseTextFieldCharsWithRetry(t *testing.T) {
 	// then
 	assert.NoError(t, err)
 	assert.Equal(t, expectedTextFields, *res)
+}
+
+func TestBestImages(t *testing.T) {
+	// given
+	var (
+		op           = openai.MockOpenaiClient{}
+		imagesClient = images.MockImagesClient{}
+		c            = NewCampaignHelperClient(&op, nil, nil, nil, &imagesClient)
+
+		ctxt              = context.TODO()
+		imageUploadFields = []PopulatedField{
+			{
+				Name:  "img1",
+				Value: "val1",
+				Type:  ImageType,
+			},
+		}
+
+		candidateImages    = []string{"candidateImg1", "candidateImg2"}
+		campaignDetailsStr = "campaignDetailsStr"
+
+		captionsResponse    = `["caption1", "caption2"]`
+		captionsResponseArr = []string{"caption1", "caption2"}
+		prompt              = fmt.Sprintf(featuresFromDescriptionPrompt, "val1")
+
+		bestImagePrompt1 = ""
+	)
+
+	op.WillReturnChatCompletion(prompt, openai.GPT4o, captionsResponse)
+	imagesClient.WillReturnBestImageFor(ctxt, captionsResponseArr, candidateImages, campaignDetailsStr, bestImagePrompt1, "candidateImg1")
+
+	// when
+	resp, err := c.bestImages(ctxt, imageUploadFields, candidateImages, campaignDetailsStr)
+
+	// then
+	assert.NoError(t, err)
+	assert.Len(t, resp, 1)
 }

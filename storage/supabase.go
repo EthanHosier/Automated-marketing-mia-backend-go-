@@ -69,9 +69,21 @@ func (s *SupabaseStorage) get(table TableName, id string) (interface{}, error) {
 	return result[0], nil
 }
 
-func (s *SupabaseStorage) getRandom(table TableName, limit int) ([]interface{}, error) {
+func (s *SupabaseStorage) getRandom(table TableName, limit int, matchingFields map[string]string) ([]interface{}, error) {
 	var results []interface{}
-	err := s.client.DB.From(string(table)).Select("*").Execute(&results)
+	initialQuery := s.client.DB.From(string(table)).Select("*")
+
+	var err error
+
+	if matchingFields == nil {
+		err = initialQuery.Execute(&results)
+	} else {
+		var query *postgrest_go.FilterRequestBuilder
+		for k, v := range matchingFields {
+			query = initialQuery.Eq(k, v)
+		}
+		err = query.Execute(&results)
+	}
 
 	rand.Shuffle(len(results), func(i, j int) {
 		results[i], results[j] = results[j], results[i]
@@ -87,7 +99,7 @@ func (s *SupabaseStorage) getAll(table TableName, matchingFields map[string]stri
 	initial_query := s.client.DB.From(string(table)).Select("*")
 	var query *postgrest_go.FilterRequestBuilder
 	for k, v := range matchingFields {
-		query = initial_query.Eq(k, v)
+		query = initial_query.Eq(k, v) //todo: this will only work for 1 key value pair
 	}
 
 	err := query.Execute(&results)

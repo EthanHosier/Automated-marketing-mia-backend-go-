@@ -255,33 +255,8 @@ func (c *CampaignHelperClient) bestImages(ctxt context.Context, imageUploadField
 	return utils.GetAsyncList(bestImageTasks)
 }
 
-func (c *CampaignHelperClient) bestImage(imageDescription string, candidateImages []string, campaignDetailsStr string) (string, error) {
-	if len(candidateImages) > 50 {
-		return "", fmt.Errorf("> 50 candidate images")
-	}
-
-	if len(candidateImages) == 0 {
-		return "", fmt.Errorf("no candidate images supplied")
-	}
-
-	prompt := fmt.Sprintf(openai.PickBestImagePrompt, campaignDetailsStr, imageDescription)
-
-	return utils.Retry(3, func() (string, error) {
-		bestImage, err := c.openaiClient.ImageCompletion(context.TODO(), prompt, candidateImages, openai.GPT4o)
-		if err != nil {
-			return "", err
-		}
-
-		i, err := utils.FirstNumberInString(bestImage)
-		if err != nil {
-			return "", err
-		}
-		return candidateImages[i], nil
-	})
-}
-
 func (c *CampaignHelperClient) GetCandidatePageContentsForUser(userID string, n int) ([]researcher.PageContents, error) {
-	randomUrls, err := storage.GetRandom[researcher.SitemapUrl](c.storage, n)
+	randomUrls, err := storage.GetRandom[researcher.SitemapUrl](c.storage, n, map[string]string{"id": userID})
 	if err != nil {
 		return nil, err
 	}

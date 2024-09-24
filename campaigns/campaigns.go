@@ -49,7 +49,7 @@ func (c *CampaignClient) GenerateThemesForUser(userID string) ([]campaign_helper
 	return c.campaignHelper.GenerateThemes(candidatePageContents, businessSummary)
 }
 
-func (c *CampaignClient) CampaignFrom(ctxt context.Context, theme campaign_helper.CampaignTheme, businessSummary *researcher.BusinessSummary) ([]*canva.Design, string, error) {
+func (c *CampaignClient) CampaignFrom(ctxt context.Context, theme campaign_helper.CampaignTheme, businessSummary *researcher.BusinessSummary) ([]*storage.Post, string, error) {
 
 	scrapedPageBodyTask := utils.DoAsync[string](func() (string, error) {
 		return c.researcher.PageBodyTextFor(theme.Url)
@@ -68,7 +68,7 @@ func (c *CampaignClient) CampaignFrom(ctxt context.Context, theme campaign_helpe
 		return c.researcher.ResearchReportFromPosts(posts)
 	})
 
-	templates, err := storage.GetRandom[storage.Template](c.storage, len(researcher.SocialMediaPlatforms))
+	templates, err := storage.GetRandom[storage.Template](c.storage, len(researcher.SocialMediaPlatforms), nil)
 	if err != nil {
 		return nil, "", err
 	}
@@ -85,7 +85,7 @@ func (c *CampaignClient) CampaignFrom(ctxt context.Context, theme campaign_helpe
 
 	campaignDetailsStr := fmt.Sprintf("Primary keyword: %v\nSecondary keyword: %v\nURL: %v\nTheme: %v\nTemplate Description: %v", theme.PrimaryKeyword, theme.SecondaryKeyword, theme.Url, theme.Theme, theme.ImageCanvaTemplateDescription)
 
-	tasks := []*utils.Task[*canva.UpdateTemplateResult]{}
+	tasks := []*utils.Task[*storage.Post]{}
 	for i, template := range templates {
 		templatePrompt := templatePrompt(
 			researcher.SocialMediaPlatforms[i],
@@ -100,8 +100,8 @@ func (c *CampaignClient) CampaignFrom(ctxt context.Context, theme campaign_helpe
 			template.ColorFields,
 		)
 
-		tasks = append(tasks, utils.DoAsync(func() (*canva.UpdateTemplateResult, error) {
-			return c.templateFrom(ctxt, templatePrompt, campaignDetailsStr, *scrapedPageContents, template)
+		tasks = append(tasks, utils.DoAsync(func() (*storage.Post, error) {
+			return c.templateFrom(ctxt, templatePrompt, campaignDetailsStr, *scrapedPageContents, template, researcher.SocialMediaPlatforms[i])
 		}))
 	}
 
@@ -110,20 +110,12 @@ func (c *CampaignClient) CampaignFrom(ctxt context.Context, theme campaign_helpe
 		return nil, "", err
 	}
 
-	results := []*canva.Design{}
-	for _, task := range tasks {
-		result, err := utils.GetAsync(task)
-		if err != nil {
-			return nil, "", err
-		}
+	postResponses, err := utils.GetAsyncList(tasks)
 
-		results = append(results, &result.Design)
-	}
-
-	return results, researchReport, nil
+	return postResponses, researchReport, err
 }
 
-func (c *CampaignClient) templateFrom(ctxt context.Context, templatePrompt string, campaignDetailsStr string, scrapedPageContents researcher.PageContents, template storage.Template) (*canva.UpdateTemplateResult, error) {
+func (c *CampaignClient) templateFrom(ctxt context.Context, templatePrompt string, campaignDetailsStr string, scrapedPageContents researcher.PageContents, template storage.Template, platform researcher.SocialMediaPlatform) (*storage.Post, error) {
 	templatePlan, err := c.campaignHelper.TemplatePlan(templatePrompt, template)
 	fmt.Printf("Template Plan: %+v\n\n", templatePlan)
 	if err != nil {
@@ -140,5 +132,17 @@ func (c *CampaignClient) templateFrom(ctxt context.Context, templatePrompt strin
 		return nil, err
 	}
 
-	return c.canvaClient.PopulateTemplate(template.ID, imageFields, textFields, colorFields)
+	canvaResult, err := c.canvaClient.PopulateTemplate(template.ID, imageFields, textFields, colorFields)
+
+	if err != nil {
+		return nil, err
+	}
+
+	postResponse := &storage.Post{
+		Platform: string(platform),
+		Caption:  templatePlan.Caption,
+		Design:   canvaResult.Design,
+	}
+
+	return postResponse, nil
 }

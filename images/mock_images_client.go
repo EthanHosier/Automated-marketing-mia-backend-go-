@@ -1,17 +1,22 @@
 package images
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type MockImagesClient struct {
-	captionsForMocks    map[string][]string
-	aiImageFromMocks    map[string][]byte
-	stockImageFromMocks map[string]string
-	bestImageForMocks   map[string]string
+	captionsForMocks          map[string][]string
+	aiImageFromMocks          map[string][]byte
+	stockImageFromMocks       map[string]string
+	bestImageForMocks         map[string]string
+	filterTooSmallImagesMocks map[string][]string
 
-	captionsForError    map[string]error
-	aiImageFromError    map[string]error
-	stockImageFromError map[string]error
-	bestImageForError   map[string]error
+	captionsForError          map[string]error
+	aiImageFromError          map[string]error
+	stockImageFromError       map[string]error
+	bestImageForError         map[string]error
+	filterTooSmallImagesError map[string]error
 }
 
 func (m *MockImagesClient) WillReturnCaptionsFor(image string, captions []string) {
@@ -36,12 +41,20 @@ func (m *MockImagesClient) WillReturnStockImageFrom(prompt string, result string
 	m.stockImageFromMocks[prompt] = result
 }
 
-func (m *MockImagesClient) WillReturnBestImageFor(desiredFeatures []string, prompt string, result string) {
+func (m *MockImagesClient) WillReturnBestImageFor(ctxt context.Context, desiredFeatures []string, guaranteedImages []string, relevanceDescription string, prompt string, result string) {
 	if m.bestImageForMocks == nil {
 		m.bestImageForMocks = make(map[string]string)
 	}
-	key := fmt.Sprintf("%v:%s", desiredFeatures, prompt)
+	key := fmt.Sprintf("%v:%s:%v:%v", desiredFeatures, prompt, guaranteedImages, relevanceDescription)
 	m.bestImageForMocks[key] = result
+}
+
+func (m *MockImagesClient) WillReturnFilterTooSmallImages(images []string, result []string) {
+	if m.filterTooSmallImagesMocks == nil {
+		m.filterTooSmallImagesMocks = make(map[string][]string)
+	}
+	key := fmt.Sprintf("%v", images)
+	m.filterTooSmallImagesMocks[key] = result
 }
 
 func (m *MockImagesClient) WillReturnCaptionsForError(image string, err error) {
@@ -66,12 +79,20 @@ func (m *MockImagesClient) WillReturnStockImageFromError(prompt string, err erro
 	m.stockImageFromError[prompt] = err
 }
 
-func (m *MockImagesClient) WillReturnBestImageForError(desiredFeatures []string, prompt string, err error) {
+func (m *MockImagesClient) WillReturnBestImageForError(ctxt context.Context, desiredFeatures []string, guaranteedImages []string, relevanceDescription string, prompt string, err error) {
 	if m.bestImageForError == nil {
 		m.bestImageForError = make(map[string]error)
 	}
-	key := fmt.Sprintf("%v:%s", desiredFeatures, prompt)
+	key := fmt.Sprintf("%v:%s:%v:%v", desiredFeatures, prompt, guaranteedImages, relevanceDescription)
 	m.bestImageForError[key] = err
+}
+
+func (m *MockImagesClient) WillReturnFilterTooSmallImagesError(images []string, err error) {
+	if m.filterTooSmallImagesError == nil {
+		m.filterTooSmallImagesError = make(map[string]error)
+	}
+	key := fmt.Sprintf("%v", images)
+	m.filterTooSmallImagesError[key] = err
 }
 
 func (m *MockImagesClient) CaptionsFor(image string) ([]string, error) {
@@ -123,8 +144,8 @@ func (m *MockImagesClient) StockImageFrom(prompt string) (string, error) {
 	return "", fmt.Errorf("no stock image from prompt: %s", prompt)
 }
 
-func (m *MockImagesClient) BestImageFor(desiredFeatures []string, prompt string) (string, error) {
-	key := fmt.Sprintf("%v:%s", desiredFeatures, prompt)
+func (m *MockImagesClient) BestImageFor(ctxt context.Context, desiredFeatures []string, guaranteedImages []string, relevanceDescription string, prompt string) (string, error) {
+	key := fmt.Sprintf("%v:%s:%v:%v", desiredFeatures, prompt, guaranteedImages, relevanceDescription)
 	if m.bestImageForError != nil {
 		if err, ok := m.bestImageForError[key]; ok {
 			return "", err
@@ -137,5 +158,34 @@ func (m *MockImagesClient) BestImageFor(desiredFeatures []string, prompt string)
 		}
 	}
 
-	return "", fmt.Errorf("no best image for desired features: %v, prompt: %s", desiredFeatures, prompt)
+	return "", fmt.Errorf("no best image for desired features: %v, prompt: %s, guaranteedImages: %v, relevanceDescription: %s", desiredFeatures, prompt, guaranteedImages, relevanceDescription)
+}
+
+func (m *MockImagesClient) CaptionsForAll(images []string) ([][]string, error) {
+	var allCaptions [][]string
+	for _, image := range images {
+		captions, err := m.CaptionsFor(image)
+		if err != nil {
+			return nil, err
+		}
+		allCaptions = append(allCaptions, captions)
+	}
+	return allCaptions, nil
+}
+
+func (m *MockImagesClient) FilterTooSmallImages(images []string) ([]string, error) {
+	key := fmt.Sprintf("%v", images)
+	if m.filterTooSmallImagesError != nil {
+		if err, ok := m.filterTooSmallImagesError[key]; ok {
+			return nil, err
+		}
+	}
+
+	if m.filterTooSmallImagesMocks != nil {
+		if result, ok := m.filterTooSmallImagesMocks[key]; ok {
+			return result, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no filtered images for images: %v", images)
 }

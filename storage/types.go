@@ -1,5 +1,7 @@
 package storage
 
+import "github.com/ethanhosier/mia-backend-go/canva"
+
 type TemplateFields struct {
 	Name          string `json:"name"`
 	Type          string `json:"type"`
@@ -36,4 +38,22 @@ type ImageFeature struct {
 type Similarity[T any] struct {
 	Item       T
 	Similarity float64
+}
+
+type Post struct {
+	Platform string       `json:"platform"`
+	Caption  string       `json:"caption"`
+	Design   canva.Design `json:"design"`
+}
+
+type CampaignData struct {
+	ResearchReport string `json:"research_report"`
+	Posts          []Post `json:"posts"`
+	Theme          string `json:"theme"`
+	PrimaryKeyword string `json:"primary_keyword"`
+}
+
+type Campaign struct {
+	ID   string       `json:"id"`
+	Data CampaignData `json:"data"`
 }

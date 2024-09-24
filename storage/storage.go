@@ -17,6 +17,7 @@ const (
 	businessSummaries_table TableName = "businessSummaries"
 	sitemaps_table          TableName = "sitemaps"
 	image_features_table    TableName = "image_features"
+	campaigns_table         TableName = "campaigns"
 )
 
 var (
@@ -28,6 +29,7 @@ var tableNames = map[reflect.Type]TableName{
 	reflect.TypeOf(researcher.BusinessSummary{}): businessSummaries_table,
 	reflect.TypeOf(researcher.SitemapUrl{}):      sitemaps_table,
 	reflect.TypeOf(ImageFeature{}):               image_features_table,
+	reflect.TypeOf(Campaign{}):                   campaigns_table,
 }
 
 type Storage interface {
@@ -36,7 +38,7 @@ type Storage interface {
 
 	get(table TableName, id string) (interface{}, error)
 	getAll(table TableName, matchingFields map[string]string) ([]interface{}, error)
-	getRandom(table TableName, limit int) ([]interface{}, error)
+	getRandom(table TableName, limit int, matchingFields map[string]string) ([]interface{}, error)
 	getClosest(ctxt context.Context, table TableName, vector []float32, limit int) ([]Similarity[interface{}], error)
 	// todo: getAll with map[string]interface{} which returns all rows matching these fields
 
@@ -71,14 +73,14 @@ func Get[T any](storage Storage, id string) (*T, error) {
 }
 
 // TODO: add matchingFields {} to match on
-func GetRandom[T any](storage Storage, limit int) ([]T, error) {
+func GetRandom[T any](storage Storage, limit int, matchingFields map[string]string) ([]T, error) {
 	typeOfT := reflect.TypeOf((*T)(nil)).Elem()
 	table, ok := tableNames[typeOfT]
 	if !ok {
 		return nil, fmt.Errorf("table not found for type %v", typeOfT)
 	}
 
-	data, err := storage.getRandom(table, limit)
+	data, err := storage.getRandom(table, limit, matchingFields)
 	if err != nil {
 		return nil, err
 	}

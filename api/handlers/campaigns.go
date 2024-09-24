@@ -2,10 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
-	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/ethanhosier/mia-backend-go/campaigns"
 	"github.com/ethanhosier/mia-backend-go/researcher"
@@ -13,11 +10,30 @@ import (
 	"github.com/ethanhosier/mia-backend-go/utils"
 )
 
+type CampaignRequest struct {
+	ID string `json:"id"`
+}
+
 func GenerateCampaigns(store storage.Storage, campaignClient *campaigns.CampaignClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := r.Context().Value(utils.UserIdKey).(string)
 		if !ok {
 			http.Error(w, "User ID not found in context", http.StatusInternalServerError)
+			return
+		}
+		var req CampaignRequest
+
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Now you can access the ID
+		id := req.ID
+
+		if id == "" {
+			http.Error(w, "Campaign ID is required", http.StatusBadRequest)
 			return
 		}
 
@@ -33,27 +49,51 @@ func GenerateCampaigns(store storage.Storage, campaignClient *campaigns.Campaign
 			return
 		}
 
-		templates, researchReport, err := campaignClient.CampaignFrom(r.Context(), themes[0], businessSummary)
+		posts, researchReport, err := campaignClient.CampaignFrom(r.Context(), themes[0], businessSummary)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		slog.Info("Generated campaign for user " + userID + " with " + strconv.Itoa(len(templates)) + " templates")
-
-		for _, template := range templates {
-			fmt.Printf("Template: %+v\n", *template)
+		postsResponses := []storage.Post{}
+		for _, post := range posts {
+			postsResponses = append(postsResponses, *post)
 		}
 
-		type response struct {
-			ResearchReport string `json:"research_report"`
+		campaign := storage.Campaign{
+			ID: id,
+			Data: storage.CampaignData{
+				ResearchReport: researchReport,
+				Posts:          postsResponses,
+				Theme:          themes[0].Theme,
+				PrimaryKeyword: themes[0].PrimaryKeyword,
+			},
 		}
 
-		resp := response{
-			ResearchReport: researchReport,
+		err = storage.Store(store, campaign)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func GetCampaign(store storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if id == "" {
+			http.Error(w, "Campaign ID is required", http.StatusBadRequest)
+			return
+		}
+
+		campaign, err := storage.Get[storage.Campaign](store, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+
+		json.NewEncoder(w).Encode(campaign)
 	}
 }
